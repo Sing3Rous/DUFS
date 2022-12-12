@@ -2,13 +2,13 @@ package com.dufs.model;
 
 public class Record {
     private char[] name = new char[32];
-    private short createDate;
-    private short createTime;
-    private int firstClusterIndex;
-    private short lastEditDate;
-    private short lastEditTime;
-    private long size;
-    private int parentDirectoryIndex;
-    private byte attributes;
-    private byte isFile; // perhaps could be moved to attributes
+    private short createDate = 0;
+    private short createTime = 0;
+    private int firstClusterIndex = 0;
+    private short lastEditDate = 0;
+    private short lastEditTime = 0;
+    private long size = 0;
+    private int parentDirectoryIndex = 0;
+    private byte attributes = 0;
+    private boolean isFile = false; // perhaps could be moved to attributes
 }
