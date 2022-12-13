@@ -3,35 +3,132 @@ package com.dufs.model;
 import com.dufs.utility.DateUtility;
 import com.dufs.utility.VolumeUtility;
 
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class ReservedSpace {
-    private final static int DUFS_NOSE_SIGNATURE = 0x44554653; // "DUFS"
-    private char[] volumeName = new char[8];
-    private int clusterSize;
-    private long volumeSize;
-    private int reservedClusters;
-    private short createDate;
-    private short createTime;
-    private short lastDefragmentationDate;
-    private short lastDefragmentationTime;
-    private int nextClusterIndex;
-    private int freeClustersCount;
-    private int nextRecordIndex;
-    private final static int DUFS_TAIL_SIGNATURE = 0x4A455442; // "JETB"
+    private final int dufsNoseSignature = 0x44554653; // "DUFS"
+    private final char[] volumeName;
+    private final int clusterSize;
+    private final long volumeSize;
+    private final int reservedClusters;
+    private final short createDate;
+    private final short createTime;
+    private final short lastDefragmentationDate;
+    private final short lastDefragmentationTime;
+    private final int nextClusterIndex;
+    private final int freeClusters;
+    private final int nextRecordIndex;
+    private final int dufsTailSignature = 0x4A455442; // "JETB"
+
+    public int getDufsNoseSignature() {
+        return dufsNoseSignature;
+    }
+
+    public char[] getVolumeName() {
+        return volumeName;
+    }
+
+    public int getClusterSize() {
+        return clusterSize;
+    }
+
+    public long getVolumeSize() {
+        return volumeSize;
+    }
+
+    public int getReservedClusters() {
+        return reservedClusters;
+    }
+
+    public short getCreateDate() {
+        return createDate;
+    }
+
+    public short getCreateTime() {
+        return createTime;
+    }
+
+    public short getLastDefragmentationDate() {
+        return lastDefragmentationDate;
+    }
+
+    public short getLastDefragmentationTime() {
+        return lastDefragmentationTime;
+    }
+
+    public int getNextClusterIndex() {
+        return nextClusterIndex;
+    }
+
+    public int getFreeClusters() {
+        return freeClusters;
+    }
+
+    public int getNextRecordIndex() {
+        return nextRecordIndex;
+    }
+
+    public int getDufsTailSignature() {
+        return dufsTailSignature;
+    }
 
     public ReservedSpace(char[] volumeName, int clusterSize, long volumeSize) {
         this.volumeName = volumeName;
         this.clusterSize = clusterSize;
         this.volumeSize = volumeSize;
         this.reservedClusters = VolumeUtility.clustersAmount(clusterSize, volumeSize);
-        this.createDate = com.dufs.utility.DateUtility.dateToShort(LocalDate.now());
+        this.createDate = DateUtility.dateToShort(LocalDate.now());
         this.createTime = DateUtility.timeToShort(LocalDateTime.now());
         this.lastDefragmentationDate = this.createDate;
         this.lastDefragmentationTime = this.createTime;
-        this.nextClusterIndex = 0;
-        this.freeClustersCount = reservedClusters;
+        this.nextClusterIndex = 1;
+        this.freeClusters = reservedClusters - 1;
         this.nextRecordIndex = 0;
+    }
+
+    public ReservedSpace(int noseSignature, char[] volumeName, int clusterSize, long volumeSize, int reservedClusters,
+                         short createDate, short createTime, short lastDefragmentationDate, short lastDefragmentationTime,
+                         int nextClusterIndex, int freeClustersCount, int nextRecordIndex, int tailSignature) {
+        this.volumeName = volumeName;
+        this.clusterSize = clusterSize;
+        this.volumeSize = volumeSize;
+        this.reservedClusters = reservedClusters;
+        this.createDate = createDate;
+        this.createTime = createTime;
+        this.lastDefragmentationDate = lastDefragmentationDate;
+        this.lastDefragmentationTime = lastDefragmentationTime;
+        this.nextClusterIndex = nextClusterIndex;
+        this.freeClusters = freeClustersCount;
+        this.nextRecordIndex = nextRecordIndex;
+    }
+
+    public byte[] serialize() {
+        final int bytesCount = 60;
+        ByteBuffer buffer = ByteBuffer.allocateDirect(bytesCount);
+        buffer.putInt(dufsNoseSignature);
+        for (int i = 0; i < 8; ++i) {
+            if (i < volumeName.length) {
+                buffer.putChar(volumeName[i]);
+            } else {
+                buffer.putChar('\u0000');
+            }
+        }
+        buffer.putInt(clusterSize);
+        buffer.putLong(volumeSize);
+        buffer.putInt(reservedClusters);
+        buffer.putShort(createDate);
+        buffer.putShort(createTime);
+        buffer.putShort(lastDefragmentationDate);
+        buffer.putShort(lastDefragmentationTime);
+        buffer.putInt(nextClusterIndex);
+        buffer.putInt(freeClusters);
+        buffer.putInt(nextRecordIndex);
+        buffer.putInt(dufsTailSignature);
+        buffer.position(0);
+        byte[] tmp = new byte[bytesCount];
+        buffer.get(tmp, 0, bytesCount);
+        return tmp;
     }
 }
