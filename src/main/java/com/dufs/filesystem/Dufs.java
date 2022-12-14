@@ -43,7 +43,7 @@ public class Dufs {
             || sharedData.getReservedSpace().getDufsTailSignature() != 0x4A455442) {
             throw new DufsException("Volume signature does not match.");
         }
-        sharedData.computeRecordListOffset();
+        sharedData.setRecordListOffset(VolumeUtility.calculateRecordListOffset(sharedData.getReservedSpace()));
         return volume;
     }
 

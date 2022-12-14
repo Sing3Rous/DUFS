@@ -2,10 +2,11 @@ package com.dufs.filesystem;
 
 import com.dufs.model.ReservedSpace;
 import com.dufs.offsets.ClusterIndexListOffsets;
+import com.dufs.utility.VolumeUtility;
 
 public class SharedData {
     private ReservedSpace reservedSpace;
-    private int recordListOffset;
+    private long recordListOffset;
 
     public ReservedSpace getReservedSpace() {
         return reservedSpace;
@@ -15,17 +16,16 @@ public class SharedData {
         this.reservedSpace = reservedSpace;
     }
 
-    public int getRecordListOffset() {
+    public long getRecordListOffset() {
         return recordListOffset;
+    }
+
+    public void setRecordListOffset(long recordListOffset) {
+        this.recordListOffset = recordListOffset;
     }
 
     public SharedData(ReservedSpace reservedSpace) {
         this.reservedSpace = reservedSpace;
-        this.recordListOffset = computeRecordListOffset();
-    }
-
-    public int computeRecordListOffset() {
-        return ClusterIndexListOffsets.CLUSTER_INDEX_LIST_OFFSET
-                + reservedSpace.getReservedClusters() * ClusterIndexListOffsets.CLUSTER_INDEX_ELEMENT_SIZE;
+        this.recordListOffset = VolumeUtility.calculateRecordListOffset(reservedSpace);
     }
 }
