@@ -8,24 +8,73 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class Record {
-    private char[] name;
-    private short createDate;
-    private short createTime;
-    private int firstClusterIndex;
-    private short lastEditDate;
-    private short lastEditTime;
-    private long size;
-    private int parentDirectoryIndex;
-    private byte isFile;
+    private final char[] name;
+    private final short createDate;
+    private final short createTime;
+    private final int firstClusterIndex;
+    private final short lastEditDate;
+    private final short lastEditTime;
+    private final long size;
+    private final int parentDirectoryIndex;
+    private final byte isFile;
+
+    public char[] getName() {
+        return name;
+    }
+
+    public short getCreateDate() {
+        return createDate;
+    }
+
+    public short getCreateTime() {
+        return createTime;
+    }
+
+    public int getFirstClusterIndex() {
+        return firstClusterIndex;
+    }
+
+    public short getLastEditDate() {
+        return lastEditDate;
+    }
+
+    public short getLastEditTime() {
+        return lastEditTime;
+    }
+
+    public long getSize() {
+        return size;
+    }
+
+    public int getParentDirectoryIndex() {
+        return parentDirectoryIndex;
+    }
+
+    public byte getIsFile() {
+        return isFile;
+    }
 
     public Record(char[] name, int parentDirectoryIndex, byte isFile) {
         this.name = name;
         this.createDate = DateUtility.dateToShort(LocalDate.now());
         this.createTime = DateUtility.timeToShort(LocalDateTime.now());
-        //this.firstClusterIndex = VolumeUtility.findNextFreeCluster();
+        this.firstClusterIndex = 0/*VolumeUtility.findNextFreeCluster()*/;
         this.lastEditDate = this.createDate;
         this.lastEditTime = this.createTime;
         this.size = 0;
+        this.parentDirectoryIndex = parentDirectoryIndex;
+        this.isFile = isFile;
+    }
+
+    public Record(char[] name, short createDate, short createTime, int firstClusterIndex, short lastEditDate,
+                  short lastEditTime, long size, int parentDirectoryIndex, byte isFile) {
+        this.name = name;
+        this.createDate = createDate;
+        this.createTime = createTime;
+        this.firstClusterIndex = firstClusterIndex;
+        this.lastEditDate = lastEditDate;
+        this.lastEditTime = lastEditTime;
+        this.size = size;
         this.parentDirectoryIndex = parentDirectoryIndex;
         this.isFile = isFile;
     }
