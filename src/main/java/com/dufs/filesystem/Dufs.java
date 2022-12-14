@@ -12,6 +12,11 @@ import java.io.RandomAccessFile;
 
 public class Dufs {
     private SharedData sharedData;
+
+    public SharedData getSharedData() {
+        return sharedData;
+    }
+
     public RandomAccessFile mountVolume(String name, int clusterSize, long volumeSize) throws DufsException, IOException {
         if (name.length() > 8) {
             throw new DufsException("Volume name length has exceeded the limit.");
