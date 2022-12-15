@@ -5,15 +5,15 @@ import com.dufs.offsets.ClusterIndexListOffsets;
 import com.dufs.utility.VolumeUtility;
 
 public class SharedData {
-    private ReservedSpace reservedSpace;
-    private long recordListOffset;
+    private static ReservedSpace reservedSpace;
+    private static long recordListOffset;
 
     public ReservedSpace getReservedSpace() {
         return reservedSpace;
     }
 
     public void setReservedSpace(ReservedSpace reservedSpace) {
-        this.reservedSpace = reservedSpace;
+        SharedData.reservedSpace = reservedSpace;
     }
 
     public long getRecordListOffset() {
@@ -21,11 +21,15 @@ public class SharedData {
     }
 
     public void setRecordListOffset(long recordListOffset) {
-        this.recordListOffset = recordListOffset;
+        SharedData.recordListOffset = recordListOffset;
     }
 
     public SharedData(ReservedSpace reservedSpace) {
-        this.reservedSpace = reservedSpace;
-        this.recordListOffset = VolumeUtility.calculateRecordListOffset(reservedSpace);
+        SharedData.reservedSpace = reservedSpace;
+        recordListOffset = VolumeUtility.calculateRecordListOffset(reservedSpace);
+    }
+
+    public static void updateNextClusterIndex(int nextClusterIndex) {
+        reservedSpace.setNextClusterIndex(nextClusterIndex);
     }
 }
