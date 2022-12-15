@@ -54,11 +54,11 @@ public class Record {
         return isFile;
     }
 
-    public Record(char[] name, int parentDirectoryIndex, byte isFile) {
+    public Record(char[] name, int firstClusterIndex, int parentDirectoryIndex, byte isFile) {
         this.name = name;
         this.createDate = DateUtility.dateToShort(LocalDate.now());
         this.createTime = DateUtility.timeToShort(LocalDateTime.now());
-        this.firstClusterIndex = 0/*VolumeUtility.findNextFreeCluster()*/;
+        this.firstClusterIndex = firstClusterIndex;
         this.lastEditDate = this.createDate;
         this.lastEditTime = this.createTime;
         this.size = 0;
