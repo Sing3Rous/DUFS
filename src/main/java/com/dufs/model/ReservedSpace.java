@@ -15,11 +15,11 @@ public class ReservedSpace {
     private final int reservedClusters;
     private final short createDate;
     private final short createTime;
-    private final short lastDefragmentationDate;
-    private final short lastDefragmentationTime;
-    private final int nextClusterIndex;
-    private final int freeClusters;
-    private final int nextRecordIndex;
+    private short lastDefragmentationDate;
+    private short lastDefragmentationTime;
+    private int nextClusterIndex;
+    private int freeClusters;
+    private int nextRecordIndex;
     private final int dufsTailSignature = 0x4A455442; // "JETB"
 
     public int getDufsNoseSignature() {
@@ -72,6 +72,26 @@ public class ReservedSpace {
 
     public int getDufsTailSignature() {
         return dufsTailSignature;
+    }
+
+    public void setLastDefragmentationDate(short lastDefragmentationDate) {
+        this.lastDefragmentationDate = lastDefragmentationDate;
+    }
+
+    public void setLastDefragmentationTime(short lastDefragmentationTime) {
+        this.lastDefragmentationTime = lastDefragmentationTime;
+    }
+
+    public void setNextClusterIndex(int nextClusterIndex) {
+        this.nextClusterIndex = nextClusterIndex;
+    }
+
+    public void setFreeClusters(int freeClusters) {
+        this.freeClusters = freeClusters;
+    }
+
+    public void setNextRecordIndex(int nextRecordIndex) {
+        this.nextRecordIndex = nextRecordIndex;
     }
 
     public ReservedSpace(char[] volumeName, int clusterSize, long volumeSize) {
