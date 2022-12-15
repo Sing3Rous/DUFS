@@ -5,6 +5,7 @@ import com.dufs.model.ClusterIndexList;
 import com.dufs.model.Record;
 import com.dufs.model.RecordList;
 import com.dufs.model.ReservedSpace;
+import com.dufs.utility.Parser;
 import com.dufs.utility.VolumeUtility;
 
 import java.io.File;
@@ -22,7 +23,14 @@ public class Dufs {
         if (name.length() > 8) {
             throw new DufsException("Volume name length has exceeded the limit.");
         }
+        if (volumeSize > 1.1e12) {  // 1.1e12 == 1TiB == 1024GiB
+            throw new DufsException("Volume size is too big.");
+        }
+        if (new File("/").getUsableSpace() < volumeSize) {
+            throw new DufsException("There is not enough space on disk.");
+        }
         RandomAccessFile volume = new RandomAccessFile(name, "rw");
+        volume.setLength(volumeSize /* + */);
         ReservedSpace reservedSpace = new ReservedSpace(name.toCharArray(), clusterSize, volumeSize);
         sharedData = new SharedData(reservedSpace);
         volume.write(reservedSpace.serialize());
@@ -52,6 +60,9 @@ public class Dufs {
         if (name.length() > 32) {
             throw new DufsException("File name length has exceeded the limit.");
         }
+        if (!Parser.isRecordNameOk(name)) {
+            throw new DufsException("File name contains prohibited symbols.");
+        }
         ReservedSpace reservedSpace = sharedData.getReservedSpace();
         if (!VolumeUtility.enoughSpace(reservedSpace, 0)) {
             throw new DufsException("Not enough space in the volume to create new file.");
@@ -59,28 +70,34 @@ public class Dufs {
         int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
         int firstClusterIndex = reservedSpace.getNextClusterIndex();
         Record file = new Record(name.toCharArray(), firstClusterIndex, directoryIndex, (byte) 1);
-        SharedData.updateNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));
+        sharedData.updateNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));
         VolumeUtility.writeRecordToVolume(volume, reservedSpace, reservedSpace.getNextRecordIndex(), file);
-        // need to allocate cluster itself
-        // need to update cluster index list
+        VolumeUtility.allocateCluster(volume, firstClusterIndex);
     }
 
-    
-    public void writeFile(RandomAccessFile volume, String path, String name, String content) {
-
+    public void writeFile(RandomAccessFile volume, String path, byte[] content) throws DufsException {
+        String fileName = Parser.parseFileNameInPath(path);
+        if (fileName.length() > 32) {
+            throw new DufsException("File name length has exceeded the limit.");
+        }
+        if (!Parser.isRecordNameOk(fileName)) {
+            throw new DufsException("File name contains prohibited symbols.");
+        }
+        ReservedSpace reservedSpace = sharedData.getReservedSpace();
+        if (!VolumeUtility.enoughSpace(reservedSpace, content.length)) {
+            throw new DufsException("Not enough space in the volume to write this content in file.");
+        }
+        // TODO: think what to do with huge amount of data (content)
     }
 
-    
-    public void readFile(RandomAccessFile volume, String path, String name) {
-
-    }
-
-    
     public void appendFile(RandomAccessFile volume, String path, String name, String content) {
 
     }
-
     
+    public void readFile(RandomAccessFile volume, String path, String name, long offset, long length) {
+
+    }
+
     public void deleteFile(RandomAccessFile volume, String path, String file) {
 
     }
