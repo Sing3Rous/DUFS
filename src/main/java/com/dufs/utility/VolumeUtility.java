@@ -9,7 +9,6 @@ import com.dufs.offsets.ReservedSpaceOffsets;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.file.FileSystems;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -93,13 +92,21 @@ public class VolumeUtility {
         volume.seek(defaultFilePointer);
     }
 
+    public static void allocateCluster(RandomAccessFile volume, int index) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(calculateClusterIndexPosition(index));
+        volume.writeInt(0xFFFFFFFF);    // ClusterIndexElement.nextClusterIndex
+        volume.writeInt(0xFFFFFFFF);    // ClusterIndexElement.prevClusterIndex
+        volume.seek(defaultFilePointer);
+    }
+
     /*
      * currently it uses linear search, which is bad.
      * architecturally it could be remade on b-trees-like data structure and find record by O(logn) through binary search
     */
     public static int findDirectoryIndex(RandomAccessFile volume, ReservedSpace reservedSpace, String path) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
-        String[] records = parsePath(path);
+        String[] records = Parser.parsePath(path);
         if (records.length == 0 || !Arrays.equals(records[0].toCharArray(), reservedSpace.getVolumeName())) {
             throw new DufsException("Given path is not correct");
         }
@@ -125,6 +132,29 @@ public class VolumeUtility {
         return recordIndex;
     }
 
+    public static int findFileIndex(RandomAccessFile volume, ReservedSpace reservedSpace, String path) throws IOException, DufsException {
+        long defaultFilePointer = volume.getFilePointer();
+        int directoryIndex = findDirectoryIndex(volume, reservedSpace, Parser.joinPath(Parser.parsePathBeforeFile(path)));
+        String fileName = Parser.parseFileNameInPath(path);
+        volume.seek(calculateClusterPosition(reservedSpace, directoryIndex));
+        int clusterIndex = 0;
+        int recordIndex = volume.readInt();
+        do {
+            Record record = readRecordFromVolume(volume, reservedSpace, recordIndex);
+            if (Arrays.equals(fileName.toCharArray(), record.getName())
+                    && record.getIsFile() == 1) {
+                clusterIndex = record.getFirstClusterIndex();
+                break;
+            }
+            recordIndex = volume.readInt();
+        } while (recordIndex != 0);
+        if (clusterIndex == 0) {
+            throw new DufsException("Given file does not exist.");
+        }
+        volume.seek(defaultFilePointer);
+        return recordIndex;
+    }
+
     /*
      * runs through the cluster chain (starting from given in ReservedSpace index) and returns first met 0;
      */
@@ -139,6 +169,7 @@ public class VolumeUtility {
             nextFreeClusterIndex++;
             clusterIndexElementData = volume.readInt(); // read 4 bytes of ClusterIndexElement.nextClusterIndex
             currentClusterIndexPosition += 4;           // skip 4 bytes of ClusterIndexElement.prevClusterIndex
+            // TODO: fix cyclic run-through
         } while (clusterIndexElementData != 0);
         volume.seek(defaultFilePointer);
         return nextFreeClusterIndex;
@@ -181,10 +212,6 @@ public class VolumeUtility {
     private static long calculateClustersAreaOffset(ReservedSpace reservedSpace) {
         return calculateRecordListOffset(reservedSpace)
                 + (long) RecordListOffsets.RECORD_SIZE * reservedSpace.getReservedClusters();
-    }
-
-    private static String[] parsePath(String path) {
-        return path.split(FileSystems.getDefault().getSeparator());
     }
 
     public static boolean enoughSpace(ReservedSpace reservedSpace, long size) {
