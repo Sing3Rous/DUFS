@@ -13,7 +13,6 @@ import java.nio.file.FileSystems;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 public class VolumeUtility {
     public static int clustersAmount(int clusterSize, long volumeSize) {
@@ -57,9 +56,9 @@ public class VolumeUtility {
                 freeClusters, nextRecordIndex, tailSignature);
     }
 
-    public static Record readRecordFromVolume(RandomAccessFile volume, int index) throws IOException {
+    public static Record readRecordFromVolume(RandomAccessFile volume, ReservedSpace reservedSpace, int index) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
-        volume.seek(calculateRecordPosition(readReservedSpaceFromVolume(volume), index)); // check if it is ok to pass it this way or better create new variable for reservedSpace
+        volume.seek(calculateRecordPosition(reservedSpace, index));
         char[] name = new char[32];
         for (int i = 0; i < 32; ++i) {
             name[i] = volume.readChar();
@@ -73,17 +72,34 @@ public class VolumeUtility {
         int parentDirectoryIndex = volume.readInt();
         byte isFile = volume.readByte();
         volume.seek(defaultFilePointer);
-        return new Record(name, createDate, createTime, firstClusterIndex, lastEditDate, lastEditTime, size, parentDirectoryIndex, isFile);
+        return new Record(name, createDate, createTime, firstClusterIndex,
+                lastEditDate, lastEditTime, size, parentDirectoryIndex, isFile);
+    }
+
+    public static void writeRecordToVolume(RandomAccessFile volume, ReservedSpace reservedSpace, int index, Record record) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(calculateRecordPosition(reservedSpace, index));
+        for (int i = 0; i < 32; ++i) {
+            volume.writeChar(record.getName()[i]);
+        }
+        volume.writeShort(record.getCreateDate());
+        volume.writeShort(record.getCreateTime());
+        volume.writeInt(record.getFirstClusterIndex());
+        volume.writeShort(record.getLastEditDate());
+        volume.writeShort(record.getLastEditTime());
+        volume.writeLong(record.getSize());
+        volume.writeInt(record.getParentDirectoryIndex());
+        volume.writeByte(record.getIsFile());
+        volume.seek(defaultFilePointer);
     }
 
     /*
      * currently it uses linear search, which is bad.
      * architecturally it could be remade on b-trees-like data structure and find record by O(logn) through binary search
     */
-    public static int findDirectoryIndex(RandomAccessFile volume, String path) throws IOException, DufsException {
+    public static int findDirectoryIndex(RandomAccessFile volume, ReservedSpace reservedSpace, String path) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
         String[] records = parsePath(path);
-        ReservedSpace reservedSpace = readReservedSpaceFromVolume(volume);
         if (records.length == 0 || !Arrays.equals(records[0].toCharArray(), reservedSpace.getVolumeName())) {
             throw new DufsException("Given path is not correct");
         }
@@ -93,7 +109,7 @@ public class VolumeUtility {
             volume.seek(calculateClusterPosition(reservedSpace, clusterIndex));
             recordIndex = volume.readInt();
             do {
-                Record record = readRecordFromVolume(volume, recordIndex);
+                Record record = readRecordFromVolume(volume, reservedSpace, recordIndex);
                 if (Arrays.equals(records[0].toCharArray(), record.getName())
                         && record.getIsFile() == 0) {
                     clusterIndex = record.getFirstClusterIndex();
@@ -109,14 +125,29 @@ public class VolumeUtility {
         return recordIndex;
     }
 
-    public static int findNextFreeCluster(RandomAccessFile volume, int pos) {
-
+    /*
+     * runs through the cluster chain (starting from given in ReservedSpace index) and returns first met 0;
+     */
+    public static int findNextFreeClusterIndex(RandomAccessFile volume, ReservedSpace reservedSpace) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        int currentClusterIndex = reservedSpace.getNextClusterIndex();
+        long currentClusterIndexPosition = calculateClusterIndexPosition(currentClusterIndex);
+        int nextFreeClusterIndex = currentClusterIndex - 1;
+        int clusterIndexElementData;
+        do {
+            volume.seek(currentClusterIndexPosition);
+            nextFreeClusterIndex++;
+            clusterIndexElementData = volume.readInt(); // read 4 bytes of ClusterIndexElement.nextClusterIndex
+            currentClusterIndexPosition += 4;           // skip 4 bytes of ClusterIndexElement.prevClusterIndex
+        } while (clusterIndexElementData != 0);
+        volume.seek(defaultFilePointer);
+        return nextFreeClusterIndex;
     }
 
     // could load RAM very much, so maybe it should be reconsidered and reimplemented
-    private static int[] adjacentClusters(RandomAccessFile volume, int firstClusterIndex) throws IOException {
+    private static int[] clustersChainIndexes(RandomAccessFile volume, ReservedSpace reservedSpace, int firstClusterIndex) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
-        volume.seek(calculateClusterPosition(readReservedSpaceFromVolume(volume), firstClusterIndex));
+        volume.seek(calculateClusterPosition(reservedSpace, firstClusterIndex));
         List<Integer> clusters = new ArrayList<>();
         int index = volume.readInt();
         do {
@@ -154,5 +185,13 @@ public class VolumeUtility {
 
     private static String[] parsePath(String path) {
         return path.split(FileSystems.getDefault().getSeparator());
+    }
+
+    public static boolean enoughSpace(ReservedSpace reservedSpace, long size) {
+        return reservedSpace.getFreeClusters() - howMuchClustersNeeds(reservedSpace, size) > 0;
+    }
+
+    private static int howMuchClustersNeeds(ReservedSpace reservedSpace, long size) {
+        return (int) Math.ceil(1.0 * size / reservedSpace.getClusterSize());
     }
 }
