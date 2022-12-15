@@ -2,6 +2,7 @@ package com.dufs.filesystem;
 
 import com.dufs.exceptions.DufsException;
 import com.dufs.model.ClusterIndexList;
+import com.dufs.model.Record;
 import com.dufs.model.RecordList;
 import com.dufs.model.ReservedSpace;
 import com.dufs.utility.VolumeUtility;
@@ -47,8 +48,21 @@ public class Dufs {
         return volume;
     }
 
-    public void createFile(RandomAccessFile volume, String path, String name) {
-
+    public void createFile(RandomAccessFile volume, String path, String name) throws IOException, DufsException {
+        if (name.length() > 32) {
+            throw new DufsException("File name length has exceeded the limit.");
+        }
+        ReservedSpace reservedSpace = sharedData.getReservedSpace();
+        if (!VolumeUtility.enoughSpace(reservedSpace, 0)) {
+            throw new DufsException("Not enough space in the volume to create new file.");
+        }
+        int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
+        int firstClusterIndex = reservedSpace.getNextClusterIndex();
+        Record file = new Record(name.toCharArray(), firstClusterIndex, directoryIndex, (byte) 1);
+        SharedData.updateNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));
+        VolumeUtility.writeRecordToVolume(volume, reservedSpace, reservedSpace.getNextRecordIndex(), file);
+        // need to allocate cluster itself
+        // need to update cluster index list
     }
 
     
