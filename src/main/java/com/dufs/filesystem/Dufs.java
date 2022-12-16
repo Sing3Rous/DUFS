@@ -120,7 +120,7 @@ public class Dufs {
         int bytesLeftInCluster = reservedSpace.getClusterSize() - (int) (dufsFile.getSize() % reservedSpace.getClusterSize());
         int firstClusterIndex = dufsFile.getFirstClusterIndex();
         byte[] buffer = new byte[reservedSpace.getClusterSize()];
-        int lastClusterIndex = VolumeUtility.lastClusterIndex(volume, firstClusterIndex);
+        int lastClusterIndex = VolumeUtility.findLastClusterIndex(volume, firstClusterIndex);
         byte[] lastClusterBuffer = new byte [bytesLeftInCluster];
         int clusterIndex = lastClusterIndex;
         // initially allocate content in the end of last cluster
@@ -150,7 +150,7 @@ public class Dufs {
         do {
             VolumeUtility.readClusterFromVolume(volume, reservedSpace, clusterIndex, buffer);
             bos.write(buffer);
-        } while ((clusterIndex = VolumeUtility.findNextCluster(volume, clusterIndex)) != -1);
+        } while ((clusterIndex = VolumeUtility.findNextClusterIndex(volume, clusterIndex)) != -1);
         // read bytes from last cluster in chain
         int bytesLeftInCluster = reservedSpace.getClusterSize() - (int) (dufsFile.getSize() % reservedSpace.getClusterSize());
         byte[] lastClusterBuffer = new byte[bytesLeftInCluster];
