@@ -16,7 +16,7 @@ public class Record {
     private final short lastEditTime;
     private final long size;
     private final int parentDirectoryIndex;
-    private final byte isFile;
+    private final byte isFile; // could be reimplemented as boolean, it might save 7 bits of storage for each Record
 
     public char[] getName() {
         return name;
