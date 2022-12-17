@@ -2,10 +2,11 @@ package com.dufs.utility;
 
 import java.nio.file.FileSystems;
 import java.util.Arrays;
+import java.util.regex.Pattern;
 
 public class Parser {
     public static String[] parsePath(String path) {
-        return path.split(FileSystems.getDefault().getSeparator());
+        return path.split(Pattern.quote(FileSystems.getDefault().getSeparator()));
     }
 
     public static String joinPath(String[] directories) {
