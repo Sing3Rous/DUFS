@@ -11,18 +11,18 @@ import com.dufs.utility.VolumeUtility;
 import java.io.*;
 
 public class Dufs {
-    private SharedData sharedData;
     private RandomAccessFile volume;
-
-    public SharedData getSharedData() {
-        return sharedData;
-    }
+    private ReservedSpace reservedSpace;
 
     public RandomAccessFile getVolume() {
         return volume;
     }
 
-    public RandomAccessFile mountVolume(String name, int clusterSize, long volumeSize) throws DufsException, IOException {
+    // consider path as argument name
+    public void mountVolume(String name, int clusterSize, long volumeSize) throws DufsException, IOException {
+        if (new File(name).exists() && !(new File(name).isDirectory())) {
+            throw new DufsException("Volume with such name already exists in this directory.");
+        }
         if (name.length() > 8) {
             throw new DufsException("Volume name length has exceeded the limit.");
         }
@@ -32,31 +32,31 @@ public class Dufs {
         if (new File("/").getUsableSpace() < volumeSize) {
             throw new DufsException("There is not enough space on disk.");
         }
+        if (clusterSize % 4 != 0) {
+            throw new DufsException("Cluster size cannot be divided by 4 directly.");
+        }
         volume = new RandomAccessFile(name, "rw");
-        volume.setLength(volumeSize /* + */);
-        ReservedSpace reservedSpace = new ReservedSpace(name.toCharArray(), clusterSize, volumeSize);
-        sharedData = new SharedData(reservedSpace);
+        volume.setLength(VolumeUtility.calculateVolumeSize(clusterSize, volumeSize));
+        reservedSpace = new ReservedSpace(name.toCharArray(), clusterSize, volumeSize);
         volume.write(reservedSpace.serialize());
         ClusterIndexList clusterIndexList = new ClusterIndexList(clusterSize, volumeSize);
         volume.write(clusterIndexList.serialize());
+        VolumeUtility.initializeRootCluster(volume);
         RecordList recordList = new RecordList(clusterSize, volumeSize);
         volume.write(recordList.serialize());
-        return volume;
     }
-    
-    public RandomAccessFile attachVolume(String name) throws DufsException, IOException {
+
+    // consider path as argument name [2]
+    public void attachVolume(String name) throws DufsException, IOException {
         File f = new File(name);
         if (!f.exists() || f.isDirectory()) {
             throw new DufsException("There is no volume with such name in this directory.");
         }
         volume = new RandomAccessFile(name, "rw");
-        sharedData.setReservedSpace(VolumeUtility.readReservedSpaceFromVolume(volume));
-        if (sharedData.getReservedSpace().getDufsNoseSignature() != 0x44554653
-            || sharedData.getReservedSpace().getDufsTailSignature() != 0x4A455442) {
+        reservedSpace = VolumeUtility.readReservedSpaceFromVolume(volume);
+        if (reservedSpace.getDufsNoseSignature() != 0x44554653 || reservedSpace.getDufsTailSignature() != 0x4A455442) {
             throw new DufsException("Volume signature does not match.");
         }
-        sharedData.setRecordListOffset(VolumeUtility.calculateRecordListOffset(sharedData.getReservedSpace()));
-        return volume;
     }
 
     public void createFile(String path, String name) throws IOException, DufsException {
@@ -66,17 +66,20 @@ public class Dufs {
         if (!Parser.isRecordNameOk(name)) {
             throw new DufsException("File name contains prohibited symbols.");
         }
-        ReservedSpace reservedSpace = sharedData.getReservedSpace();
+        int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
+        if (!VolumeUtility.isNameUniqueInDirectory(volume, reservedSpace, directoryIndex, name.toCharArray(), (byte) 1)) {
+            throw new DufsException("File with such name already contains in this path.");
+        }
         if (!VolumeUtility.enoughSpace(reservedSpace, 0)) {
             throw new DufsException("Not enough space in the volume to create new file.");
         }
-        int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
         int firstClusterIndex = reservedSpace.getNextClusterIndex();
         Record file = new Record(name.toCharArray(), firstClusterIndex, directoryIndex, (byte) 1);
-        sharedData.updateNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));
-        VolumeUtility.writeRecordToVolume(volume, reservedSpace, reservedSpace.getNextRecordIndex(), file);
-        // TODO: record index should be updated
-        VolumeUtility.allocateOneCluster(volume, firstClusterIndex);
+        int recordIndex = reservedSpace.getNextRecordIndex();
+        VolumeUtility.writeRecordToVolume(volume, reservedSpace, recordIndex, file);
+        reservedSpace.setNextRecordIndex(VolumeUtility.findNextFreeRecordIndex(volume, reservedSpace));
+        VolumeUtility.createClusterIndexChain(volume, reservedSpace, firstClusterIndex);
+        VolumeUtility.addRecordIndexInDirectoryCluster(volume, reservedSpace, recordIndex, directoryIndex);
     }
 
     /*
@@ -84,7 +87,6 @@ public class Dufs {
      * currently it supports only writing data from external file
      */
     public void writeFile(String path, File file) throws DufsException, IOException {
-        ReservedSpace reservedSpace = sharedData.getReservedSpace();
         if (!VolumeUtility.enoughSpace(reservedSpace, file.length())) {
             throw new DufsException("Not enough space in the volume to write this content in file.");
         }
@@ -96,9 +98,14 @@ public class Dufs {
         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
         byte[] buffer = new byte[reservedSpace.getClusterSize()];
         int clusterIndex = dufsFile.getFirstClusterIndex();
-        while (bis.read(buffer) != -1) {
-            clusterIndex = VolumeUtility.allocateNewCluster(volume, reservedSpace, clusterIndex, buffer);
-            sharedData.updateNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));   // should it be written here or moved inside allocateNewCluster method
+        int bytes;
+        while ((bytes = bis.read(buffer)) != -1) {
+            if (bytes == reservedSpace.getClusterSize()) {
+                VolumeUtility.allocateCluster(volume, reservedSpace, clusterIndex, buffer);
+                clusterIndex = VolumeUtility.updateClusterChain(volume, reservedSpace, clusterIndex);
+            } else {
+                VolumeUtility.allocateCluster(volume, reservedSpace, clusterIndex, buffer);
+            }
         }
         VolumeUtility.updateRecordSize(volume, reservedSpace, dufsFileIndex, file.length());
     }
@@ -107,7 +114,6 @@ public class Dufs {
      * appends data to file which already contains some data
      */
     public void appendFile(String path, File file) throws  DufsException, IOException {
-        ReservedSpace reservedSpace = sharedData.getReservedSpace();
         if (!VolumeUtility.enoughSpace(reservedSpace, file.length())) {
             throw new DufsException("Not enough space in the volume to write this content in file.");
         }
@@ -131,13 +137,12 @@ public class Dufs {
         // then allocate content in new clusters
         while (bis.read(buffer) != -1) {
             clusterIndex = VolumeUtility.allocateNewCluster(volume, reservedSpace, clusterIndex, buffer);
-            sharedData.updateNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));   // should it be written here or moved inside allocateNewCluster method
+            reservedSpace.setNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));   // should it be written here or moved inside allocateNewCluster method
         }
         VolumeUtility.updateRecordSize(volume, reservedSpace, dufsFileIndex, file.length());
     }
 
     public void readFile(String path, File file) throws IOException, DufsException {
-        ReservedSpace reservedSpace = sharedData.getReservedSpace();
         int dufsFileIndex = VolumeUtility.findFileIndex(volume, reservedSpace, path);
         Record dufsFile = VolumeUtility.readRecordFromVolume(volume, reservedSpace, dufsFileIndex);
         if (!VolumeUtility.recordExists(volume, dufsFile.getFirstClusterIndex()) && (dufsFile.getIsFile() == 1)) {
@@ -147,62 +152,58 @@ public class Dufs {
         byte[] buffer = new byte[reservedSpace.getClusterSize()];
         // read bytes from every cluster in chain but the last
         int clusterIndex = dufsFile.getFirstClusterIndex();
-        do {
+        int prevClusterIndex = clusterIndex;
+        while ((clusterIndex = VolumeUtility.findNextClusterIndex(volume, clusterIndex)) != -1) {
             VolumeUtility.readClusterFromVolume(volume, reservedSpace, clusterIndex, buffer);
             bos.write(buffer);
-        } while ((clusterIndex = VolumeUtility.findNextClusterIndex(volume, clusterIndex)) != -1);
+            prevClusterIndex = clusterIndex;
+        }
         // read bytes from last cluster in chain
-        int bytesLeftInCluster = reservedSpace.getClusterSize() - (int) (dufsFile.getSize() % reservedSpace.getClusterSize());
-        byte[] lastClusterBuffer = new byte[bytesLeftInCluster];
-        VolumeUtility.readClusterFromVolume(volume, reservedSpace, clusterIndex, lastClusterBuffer);
+        byte[] lastClusterBuffer = new byte[(int) (dufsFile.getSize() % reservedSpace.getClusterSize())];
+        VolumeUtility.readClusterFromVolume(volume, reservedSpace, prevClusterIndex, lastClusterBuffer);
         bos.write(lastClusterBuffer);
     }
 
     public void deleteFile(String path) throws DufsException, IOException {
-        ReservedSpace reservedSpace = sharedData.getReservedSpace();
         int dufsFileIndex = VolumeUtility.findFileIndex(volume, reservedSpace, path);
         Record dufsFile = VolumeUtility.readRecordFromVolume(volume, reservedSpace, dufsFileIndex);
         if (!VolumeUtility.recordExists(volume, dufsFile.getFirstClusterIndex()) && (dufsFile.getIsFile() == 1)) {
             throw new DufsException("File does not exist.");
         }
-        //
+        VolumeUtility.deleteRecord(volume, reservedSpace, dufsFile, dufsFileIndex);
     }
 
-    
     public void renameFile(String path, String newName) {
 
     }
-
     
     public void moveFile(String path, String newPath) {
 
     }
-
     
     public void createDir(String path, String name) {
 
     }
-
     
     public void deleteDir(String path, String name) {
 
     }
-
     
     public void renameDir(String path, String oldName, String newName) {
 
     }
-
     
     public void moveDir(String oldPath, String name, String newPath) {
 
     }
-
     
     public void printDirContent(String path) {
 
     }
 
+    public void printVolumeInfo() {
+
+    }
     
     public void defragmentation() {
 
