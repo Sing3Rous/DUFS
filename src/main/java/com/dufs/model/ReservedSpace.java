@@ -105,12 +105,12 @@ public class ReservedSpace {
         this.lastDefragmentationTime = this.createTime;
         this.nextClusterIndex = 1;
         this.freeClusters = reservedClusters - 1;
-        this.nextRecordIndex = 0;
+        this.nextRecordIndex = 1;
     }
 
-    public ReservedSpace(int noseSignature, char[] volumeName, int clusterSize, long volumeSize, int reservedClusters,
+    public ReservedSpace(char[] volumeName, int clusterSize, long volumeSize, int reservedClusters,
                          short createDate, short createTime, short lastDefragmentationDate, short lastDefragmentationTime,
-                         int nextClusterIndex, int freeClustersCount, int nextRecordIndex, int tailSignature) {
+                         int nextClusterIndex, int freeClustersCount, int nextRecordIndex) {
         this.volumeName = volumeName;
         this.clusterSize = clusterSize;
         this.volumeSize = volumeSize;
