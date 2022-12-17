@@ -1,11 +1,11 @@
 package com.dufs.model;
 
 import com.dufs.utility.DateUtility;
-import com.dufs.utility.VolumeUtility;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 
 public class Record {
     private final char[] name;
@@ -54,8 +54,20 @@ public class Record {
         return isFile;
     }
 
+    public Record() {
+        this.name = new char[32];
+        this.createDate = 0;
+        this.createTime = 0;
+        this.firstClusterIndex = 0;
+        this.lastEditDate = 0;
+        this.lastEditTime = 0;
+        this.size = 0;
+        this.parentDirectoryIndex = 0;
+        this.isFile = 0;
+    }
+
     public Record(char[] name, int firstClusterIndex, int parentDirectoryIndex, byte isFile) {
-        this.name = name;
+        this.name = Arrays.copyOf(name, 32);
         this.createDate = DateUtility.dateToShort(LocalDate.now());
         this.createTime = DateUtility.timeToShort(LocalDateTime.now());
         this.firstClusterIndex = firstClusterIndex;
@@ -68,7 +80,7 @@ public class Record {
 
     public Record(char[] name, short createDate, short createTime, int firstClusterIndex, short lastEditDate,
                   short lastEditTime, long size, int parentDirectoryIndex, byte isFile) {
-        this.name = name;
+        this.name = Arrays.copyOf(name, 32);
         this.createDate = createDate;
         this.createTime = createTime;
         this.firstClusterIndex = firstClusterIndex;
@@ -101,5 +113,21 @@ public class Record {
         byte[] tmp = new byte[bytesCount];
         buffer.get(tmp, 0, bytesCount);
         return tmp;
+    }
+
+    // maybe should be remade by using StringBuffer or StringBuilder
+    @Override
+    public String toString() {
+        return "Record{" +
+                "name=" + Arrays.toString(name) +
+                ", createDate=" + createDate +
+                ", createTime=" + createTime +
+                ", firstClusterIndex=" + firstClusterIndex +
+                ", lastEditDate=" + lastEditDate +
+                ", lastEditTime=" + lastEditTime +
+                ", size=" + size +
+                ", parentDirectoryIndex=" + parentDirectoryIndex +
+                ", isFile=" + isFile +
+                '}';
     }
 }
