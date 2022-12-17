@@ -9,6 +9,9 @@ public class RecordList {
 
     public RecordList(int clusterSize, long volumeSize) {
         records = new Record[VolumeUtility.clustersAmount(clusterSize, volumeSize)];
+        for (int i = 0; i < records.length; ++i) {
+            records[i] = new Record();
+        }
     }
 
     public byte[] serialize() {

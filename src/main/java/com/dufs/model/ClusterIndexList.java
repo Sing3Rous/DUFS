@@ -9,7 +9,11 @@ public class ClusterIndexList {
 
     public ClusterIndexList(int clusterSize, long volumeSize) {
         clusterIndexElements = new ClusterIndexElement[VolumeUtility.clustersAmount(clusterSize, volumeSize)];
+        for (int i = 0; i < clusterIndexElements.length; ++i) {
+            clusterIndexElements[i] = new ClusterIndexElement();
+        }
     }
+
     public byte[] serialize() {
         final int bytesCount = 8 * clusterIndexElements.length;
         ByteBuffer buffer = ByteBuffer.allocateDirect(bytesCount);
