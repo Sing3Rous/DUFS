@@ -10,9 +10,9 @@ public class DateUtility {
         final int month = date.getMonthValue();
         final int day = date.getDayOfMonth();
         short encodedDate = 0;
-        encodedDate |= month;   // put month value in the end (natural limit is 5 bits)
-        encodedDate <<= 4;      // shift 4 bits left
-        encodedDate |= day;     // put day value in the end (natural limit is 4 bits)
+        encodedDate |= month;   // put month value in the end (natural limit is 4 bits)
+        encodedDate <<= 5;      // shift 5 bits left
+        encodedDate |= day;     // put day value in the end (natural limit is 5 bits)
         encodedDate <<= 7;      // shift 7 bits left
         encodedDate |= year;    // put year value in the end (naturally unlimited, but here is limited to 7 bits)
         return encodedDate;
@@ -20,8 +20,8 @@ public class DateUtility {
 
     public static int[] shortToDate(short encodedDate) {
         final int year = (encodedDate & 0b0000000001111111) + REFERENCE_YEAR;
-        final int month = encodedDate & 0b1111100000000000;
-        final int day = encodedDate & 0b0000011110000000;
+        final int month = (encodedDate & 0b1111000000000000) >> 12;
+        final int day = (encodedDate & 0b0000111110000000) >> 7;
         return new int[] { year, month, day };
     }
 
@@ -39,9 +39,9 @@ public class DateUtility {
     }
 
     public static int[] shortToTime(short encodedTime) {
-        final int hour = encodedTime & 0b1111100000000000;
-        final int minute = encodedTime & 0b0000011111100000;
-        final int doubleSecond = encodedTime & 0b0000000000011111;
+        final int hour = (encodedTime & 0b1111100000000000) >> 11;
+        final int minute = (encodedTime & 0b0000011111100000) >> 5;
+        final int doubleSecond = (encodedTime & 0b0000000000011111);
         return new int[] { hour, minute, doubleSecond };
     }
 }
