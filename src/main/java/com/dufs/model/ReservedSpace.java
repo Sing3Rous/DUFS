@@ -97,7 +97,7 @@ public class ReservedSpace {
     public ReservedSpace(char[] volumeName, int clusterSize, long volumeSize) {
         this.volumeName = volumeName;
         this.clusterSize = clusterSize;
-        this.volumeSize = volumeSize;
+        this.volumeSize = VolumeUtility.calculateVolumeSize(clusterSize, volumeSize);
         this.reservedClusters = VolumeUtility.clustersAmount(clusterSize, volumeSize);
         this.createDate = DateUtility.dateToShort(LocalDate.now());
         this.createTime = DateUtility.timeToShort(LocalDateTime.now());
