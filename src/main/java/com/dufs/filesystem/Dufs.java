@@ -5,10 +5,15 @@ import com.dufs.model.ClusterIndexList;
 import com.dufs.model.Record;
 import com.dufs.model.RecordList;
 import com.dufs.model.ReservedSpace;
+import com.dufs.offsets.ReservedSpaceOffsets;
+import com.dufs.utility.DateUtility;
 import com.dufs.utility.Parser;
+import com.dufs.utility.PrintUtility;
 import com.dufs.utility.VolumeUtility;
 
 import java.io.*;
+import java.util.Arrays;
+import java.util.Date;
 
 public class Dufs {
     private RandomAccessFile volume;
@@ -74,12 +79,16 @@ public class Dufs {
             throw new DufsException("Not enough space in the volume to create new file.");
         }
         int firstClusterIndex = reservedSpace.getNextClusterIndex();
+        reservedSpace.setNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));
+        VolumeUtility.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
         Record file = new Record(name.toCharArray(), firstClusterIndex, directoryIndex, (byte) 1);
         int recordIndex = reservedSpace.getNextRecordIndex();
         VolumeUtility.writeRecordToVolume(volume, reservedSpace, recordIndex, file);
         reservedSpace.setNextRecordIndex(VolumeUtility.findNextFreeRecordIndex(volume, reservedSpace));
+        VolumeUtility.updateVolumeNextRecordIndex(volume, reservedSpace.getNextRecordIndex());
         VolumeUtility.createClusterIndexChain(volume, reservedSpace, firstClusterIndex);
         VolumeUtility.addRecordIndexInDirectoryCluster(volume, reservedSpace, recordIndex, directoryIndex);
+        VolumeUtility.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
     }
 
     /*
@@ -101,13 +110,15 @@ public class Dufs {
         int bytes;
         while ((bytes = bis.read(buffer)) != -1) {
             if (bytes == reservedSpace.getClusterSize()) {
-                VolumeUtility.allocateCluster(volume, reservedSpace, clusterIndex, buffer);
+                VolumeUtility.allocateInEmptyCluster(volume, reservedSpace, clusterIndex, buffer);
                 clusterIndex = VolumeUtility.updateClusterChain(volume, reservedSpace, clusterIndex);
+                VolumeUtility.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
             } else {
-                VolumeUtility.allocateCluster(volume, reservedSpace, clusterIndex, buffer);
+                VolumeUtility.allocateInEmptyCluster(volume, reservedSpace, clusterIndex, buffer);
             }
         }
-        VolumeUtility.updateRecordSize(volume, reservedSpace, dufsFileIndex, file.length());
+        VolumeUtility.updateRecordSize(volume, reservedSpace, dufsFileIndex, file.length() + dufsFile.getSize());
+        bis.close();
     }
 
     /*
@@ -135,11 +146,18 @@ public class Dufs {
                     reservedSpace.getClusterSize() - bytesLeftInCluster, lastClusterBuffer);
         }
         // then allocate content in new clusters
-        while (bis.read(buffer) != -1) {
-            clusterIndex = VolumeUtility.allocateNewCluster(volume, reservedSpace, clusterIndex, buffer);
-            reservedSpace.setNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));   // should it be written here or moved inside allocateNewCluster method
+        int bytes;
+        while ((bytes = bis.read(buffer)) != -1) {
+            if (bytes == reservedSpace.getClusterSize()) {
+                VolumeUtility.allocateInEmptyCluster(volume, reservedSpace, clusterIndex, buffer);
+                clusterIndex = VolumeUtility.updateClusterChain(volume, reservedSpace, clusterIndex);
+                VolumeUtility.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
+            } else {
+                VolumeUtility.allocateInEmptyCluster(volume, reservedSpace, clusterIndex, buffer);
+            }
         }
-        VolumeUtility.updateRecordSize(volume, reservedSpace, dufsFileIndex, file.length());
+        VolumeUtility.updateRecordSize(volume, reservedSpace, dufsFileIndex, file.length() + dufsFile.getSize());
+        bis.close();
     }
 
     public void readFile(String path, File file) throws IOException, DufsException {
@@ -162,6 +180,7 @@ public class Dufs {
         byte[] lastClusterBuffer = new byte[(int) (dufsFile.getSize() % reservedSpace.getClusterSize())];
         VolumeUtility.readClusterFromVolume(volume, reservedSpace, prevClusterIndex, lastClusterBuffer);
         bos.write(lastClusterBuffer);
+        bos.close();
     }
 
     public void deleteFile(String path) throws DufsException, IOException {
@@ -171,10 +190,29 @@ public class Dufs {
             throw new DufsException("File does not exist.");
         }
         VolumeUtility.deleteRecord(volume, reservedSpace, dufsFile, dufsFileIndex);
+        int freeClusters = reservedSpace.getFreeClusters() - VolumeUtility.howMuchClustersNeeds(reservedSpace, dufsFile.getSize());
+        reservedSpace.setFreeClusters(freeClusters);
+        VolumeUtility.updateVolumeFreeClusters(volume, freeClusters);
+        // delete file index from parent directory cluster content
     }
 
-    public void renameFile(String path, String newName) {
-
+    public void renameFile(String path, String newName) throws IOException, DufsException {
+        if (newName.length() > 32) {
+            throw new DufsException("File name length has exceeded the limit.");
+        }
+        if (!Parser.isRecordNameOk(newName)) {
+            throw new DufsException("File name contains prohibited symbols.");
+        }
+        int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
+        if (!VolumeUtility.isNameUniqueInDirectory(volume, reservedSpace, directoryIndex, newName.toCharArray(), (byte) 1)) {
+            throw new DufsException("File with such name already contains in this path.");
+        }
+        int dufsFileIndex = VolumeUtility.findFileIndex(volume, reservedSpace, path);
+        Record dufsFile = VolumeUtility.readRecordFromVolume(volume, reservedSpace, dufsFileIndex);
+        if (!VolumeUtility.recordExists(volume, dufsFile.getFirstClusterIndex()) && (dufsFile.getIsFile() == 1)) {
+            throw new DufsException("File does not exist.");
+        }
+        VolumeUtility.updateRecordName(volume, reservedSpace, dufsFileIndex, Arrays.copyOf(newName.toCharArray(), 32));
     }
     
     public void moveFile(String path, String newPath) {
@@ -197,12 +235,28 @@ public class Dufs {
 
     }
     
-    public void printDirContent(String path) {
-
+    public void printDirectoryContent(String path) throws IOException, DufsException {
+        int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
+        PrintUtility.printRecordsInDirectory(volume, reservedSpace, directoryIndex);
     }
 
-    public void printVolumeInfo() {
-
+    public void printVolumeInfo() throws IOException {
+        ReservedSpace volumeReservedSpace = VolumeUtility.readReservedSpaceFromVolume(volume);
+        String volumeName = new String(volumeReservedSpace.getVolumeName()).replace("\u0000", "");
+        System.out.println("Volume name: " + volumeName);
+        System.out.println("Volume size in Kib: " + PrintUtility.bytes2KiB(volumeReservedSpace.getVolumeSize()));
+        int[] createDate = DateUtility.shortToDate(volumeReservedSpace.getCreateDate());
+        int[] createTime = DateUtility.shortToTime(volumeReservedSpace.getCreateTime());
+        int[] lastDefragmentationDate = DateUtility.shortToDate(volumeReservedSpace.getLastDefragmentationDate());
+        int[] lastDefragmentationTime = DateUtility.shortToTime(volumeReservedSpace.getLastDefragmentationTime());
+        System.out.println("Create date: " + createDate[0] + "." + createDate[1] + "." + createDate[2]);
+        System.out.println("Create time: " + createTime[0] + ":" + createTime[1] + ":" + createTime[2]);
+        System.out.println("Free size in Kib: " +
+                PrintUtility.bytes2KiB((long) volumeReservedSpace.getFreeClusters() * volumeReservedSpace.getClusterSize()));
+        System.out.println("Last defragmentation date: " + lastDefragmentationDate[0]
+                + "." + lastDefragmentationDate[1] + "." + lastDefragmentationDate[2]);
+        System.out.println("Last defragmentation time: " + lastDefragmentationTime[0]
+                + ":" + lastDefragmentationTime[1] + ":" + lastDefragmentationTime[2]);
     }
     
     public void defragmentation() {
