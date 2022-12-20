@@ -90,11 +90,11 @@ public class PrintUtility {
                 Record record = VolumeUtility.readRecordFromVolume(volume, reservedSpace, recordIndex);
                 String name = new String(record.getName()).replace("\u0000", "");
                 for (int i = 0; i < depth; ++i) {
-                    System.out.print("\t\t");
+                    System.out.print("\t");
                 }
                 System.out.println(name);
                 for (int i = 0; i < depth; ++i) {
-                    System.out.print("\t\t");
+                    System.out.print("\t");
                 }
                 printRecordClusterChain(volume, record.getFirstClusterIndex());
                 if (record.getIsFile() == 0) {
