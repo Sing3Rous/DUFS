@@ -16,6 +16,7 @@ public class Record {
     private final short lastEditTime;
     private final long size;
     private final int parentDirectoryIndex;
+    private final int parentDirectoryIndexOrderNumber;
     private final byte isFile; // could be reimplemented as boolean, it might save 7 bits of storage for each Record
 
     public char[] getName() {
@@ -54,6 +55,10 @@ public class Record {
         return isFile;
     }
 
+    public int getParentDirectoryIndexOrderNumber() {
+        return parentDirectoryIndexOrderNumber;
+    }
+
     public Record() {
         this.name = new char[32];
         this.createDate = 0;
@@ -63,10 +68,12 @@ public class Record {
         this.lastEditTime = 0;
         this.size = 0;
         this.parentDirectoryIndex = 0;
+        this.parentDirectoryIndexOrderNumber = 0;
         this.isFile = 0;
     }
 
-    public Record(char[] name, int firstClusterIndex, int parentDirectoryIndex, byte isFile) {
+    public Record(char[] name, int firstClusterIndex, int parentDirectoryIndex,
+                  int parentDirectoryIndexOrderNumber, byte isFile) {
         this.name = Arrays.copyOf(name, 32);
         this.createDate = DateUtility.dateToShort(LocalDate.now());
         this.createTime = DateUtility.timeToShort(LocalDateTime.now());
@@ -75,11 +82,12 @@ public class Record {
         this.lastEditTime = this.createTime;
         this.size = 0;
         this.parentDirectoryIndex = parentDirectoryIndex;
+        this.parentDirectoryIndexOrderNumber = parentDirectoryIndexOrderNumber;
         this.isFile = isFile;
     }
 
     public Record(char[] name, short createDate, short createTime, int firstClusterIndex, short lastEditDate,
-                  short lastEditTime, long size, int parentDirectoryIndex, byte isFile) {
+                  short lastEditTime, long size, int parentDirectoryIndex, int parentDirectoryIndexOrderNumber, byte isFile) {
         this.name = Arrays.copyOf(name, 32);
         this.createDate = createDate;
         this.createTime = createTime;
@@ -88,6 +96,7 @@ public class Record {
         this.lastEditTime = lastEditTime;
         this.size = size;
         this.parentDirectoryIndex = parentDirectoryIndex;
+        this.parentDirectoryIndexOrderNumber = parentDirectoryIndexOrderNumber;
         this.isFile = isFile;
     }
 

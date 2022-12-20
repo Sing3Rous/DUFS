@@ -9,5 +9,6 @@ public class RecordOffsets {
     public static final int LAST_EDIT_TIME_OFFSET = 74;
     public static final int SIZE_OFFSET = 76;
     public static final int PARENT_DIRECTORY_INDEX_OFFSET = 84;
-    public static final int IS_FILE_OFFSET = 88;
+    public static final int PARENT_DIRECTORY_INDEX_ORDER_NUMBER_OFFSET = 88;
+    public static final int IS_FILE_OFFSET = 92;
 }

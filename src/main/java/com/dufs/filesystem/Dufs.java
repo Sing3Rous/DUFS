@@ -81,13 +81,14 @@ public class Dufs {
         int firstClusterIndex = reservedSpace.getNextClusterIndex();
         reservedSpace.setNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));
         VolumeUtility.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
-        Record file = new Record(name.toCharArray(), firstClusterIndex, directoryIndex, (byte) 1);
         int recordIndex = reservedSpace.getNextRecordIndex();
+        int directoryOrderNumber = VolumeUtility.addRecordIndexInDirectoryCluster(volume, reservedSpace, recordIndex, directoryIndex);
+        Record file = new Record(name.toCharArray(), firstClusterIndex, directoryIndex, directoryOrderNumber, (byte) 1);
         VolumeUtility.writeRecordToVolume(volume, reservedSpace, recordIndex, file);
         reservedSpace.setNextRecordIndex(VolumeUtility.findNextFreeRecordIndex(volume, reservedSpace));
         VolumeUtility.updateVolumeNextRecordIndex(volume, reservedSpace.getNextRecordIndex());
         VolumeUtility.createClusterIndexChain(volume, reservedSpace, firstClusterIndex);
-        VolumeUtility.addRecordIndexInDirectoryCluster(volume, reservedSpace, recordIndex, directoryIndex);
+
         VolumeUtility.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
     }
 
@@ -193,15 +194,14 @@ public class Dufs {
         int freeClusters = reservedSpace.getFreeClusters() - VolumeUtility.howMuchClustersNeeds(reservedSpace, dufsFile.getSize());
         reservedSpace.setFreeClusters(freeClusters);
         VolumeUtility.updateVolumeFreeClusters(volume, freeClusters);
-        // delete file index from parent directory cluster content
     }
 
     public void renameFile(String path, String newName) throws IOException, DufsException {
         if (newName.length() > 32) {
-            throw new DufsException("File name length has exceeded the limit.");
+            throw new DufsException("New file name length has exceeded the limit.");
         }
         if (!Parser.isRecordNameOk(newName)) {
-            throw new DufsException("File name contains prohibited symbols.");
+            throw new DufsException("New file name contains prohibited symbols.");
         }
         int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
         if (!VolumeUtility.isNameUniqueInDirectory(volume, reservedSpace, directoryIndex, newName.toCharArray(), (byte) 1)) {
@@ -215,8 +215,17 @@ public class Dufs {
         VolumeUtility.updateRecordName(volume, reservedSpace, dufsFileIndex, Arrays.copyOf(newName.toCharArray(), 32));
     }
     
-    public void moveFile(String path, String newPath) {
-
+    public void moveFile(String path, String newPath) throws IOException, DufsException {
+        int dufsFileIndex = VolumeUtility.findFileIndex(volume, reservedSpace, path);
+        Record dufsFile = VolumeUtility.readRecordFromVolume(volume, reservedSpace, dufsFileIndex);
+        if (!VolumeUtility.recordExists(volume, dufsFile.getFirstClusterIndex()) && (dufsFile.getIsFile() == 1)) {
+            throw new DufsException("File does not exist.");
+        }
+        int newDirectoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, newPath);
+        int newDirectoryIndexOrderNumber = VolumeUtility.addRecordIndexInDirectoryCluster(volume, reservedSpace, dufsFileIndex, newDirectoryIndex);
+        VolumeUtility.removeRecordIndexFromDirectoryCluster(volume, reservedSpace,
+                dufsFile.getParentDirectoryIndex(), dufsFile.getParentDirectoryIndexOrderNumber());
+        VolumeUtility.updateRecordParentDirectory(volume, reservedSpace, dufsFileIndex, newDirectoryIndex, newDirectoryIndexOrderNumber);
     }
     
     public void createDir(String path, String name) {
@@ -257,6 +266,17 @@ public class Dufs {
                 + "." + lastDefragmentationDate[1] + "." + lastDefragmentationDate[2]);
         System.out.println("Last defragmentation time: " + lastDefragmentationTime[0]
                 + ":" + lastDefragmentationTime[1] + ":" + lastDefragmentationTime[2]);
+    }
+
+    public void printVolumeRecords() throws IOException {
+        PrintUtility.printRecords(volume, reservedSpace);
+    }
+
+    public void printDirectoryTree() throws IOException {
+        String rootName = new String(reservedSpace.getVolumeName()).replace("\u0000", "");
+        System.out.println(rootName);
+        System.out.println();
+        PrintUtility.dfsPrintRecords(volume, reservedSpace, 0, 1);
     }
     
     public void defragmentation() {

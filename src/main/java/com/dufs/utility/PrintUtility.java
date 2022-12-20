@@ -64,4 +64,68 @@ public class PrintUtility {
                 + " at " + lastEditTime[0] + ":" + lastEditTime[1] + ":" + lastEditTime[2]);
         System.out.println();
     }
+
+    public static void printRecordClusterChain(RandomAccessFile volume, int firstClusterIndex) throws IOException {
+        int clusterIndex = firstClusterIndex;
+        System.out.print(clusterIndex);
+        while ((clusterIndex = VolumeUtility.findNextClusterIndex(volume, clusterIndex)) != -1) {
+            System.out.print(" -> ");
+            System.out.print(clusterIndex);
+        }
+        System.out.println();
+    }
+
+    public static void dfsPrintRecords(RandomAccessFile volume, ReservedSpace reservedSpace,
+                                       int directoryIndex, int depth) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(VolumeUtility.calculateClusterPosition(reservedSpace, directoryIndex));
+        int clusterIndex = directoryIndex;
+        int recordIndex;
+        long clusterPosition = VolumeUtility.calculateClusterPosition(reservedSpace, directoryIndex) + 4;
+        do {
+            volume.seek(clusterPosition);
+            recordIndex = volume.readInt();
+            int counter = 0;
+            while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {
+                Record record = VolumeUtility.readRecordFromVolume(volume, reservedSpace, recordIndex);
+                String name = new String(record.getName()).replace("\u0000", "");
+                for (int i = 0; i < depth; ++i) {
+                    System.out.print("\t\t");
+                }
+                System.out.println(name);
+                for (int i = 0; i < depth; ++i) {
+                    System.out.print("\t\t");
+                }
+                printRecordClusterChain(volume, record.getFirstClusterIndex());
+                if (record.getIsFile() == 0) {
+                    dfsPrintRecords(volume, reservedSpace, recordIndex, depth + 1);
+                }
+                System.out.println();
+                recordIndex = volume.readInt();
+            }
+            clusterIndex = VolumeUtility.findNextClusterIndex(volume, clusterIndex);
+            clusterPosition = VolumeUtility.calculateClusterPosition(reservedSpace, clusterIndex);
+        } while (clusterIndex != -1);
+        volume.seek(defaultFilePointer);
+    }
+
+    public static void printRecords(RandomAccessFile volume, ReservedSpace reservedSpace) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        for (int i = 1; i < reservedSpace.getReservedClusters(); ++i) {
+            Record record = VolumeUtility.readRecordFromVolume(volume, reservedSpace, i);
+            if (VolumeUtility.recordExists(volume, reservedSpace, i)) {
+                System.out.print("#" + i + ", ");
+                if (record.getIsFile() == 1) {
+                    System.out.print("(FILE)");
+                } else {
+                    System.out.print("(DIR)");
+                }
+                System.out.println(":");
+                printRecord(record);
+                printRecordClusterChain(volume, record.getFirstClusterIndex());
+            }
+        }
+        volume.seek(defaultFilePointer);
+    }
 }
+
