@@ -14,16 +14,24 @@ public class Main {
         dufs.printVolumeInfo();
         dufs.createFile("DISK_B", "LOL");
         dufs.createFile("DISK_B", "ZOZA");
-        dufs.createFile("DISK_B", "qwe");
-        dufs.printDirectoryContent("DISK_B");
-        dufs.writeFile("DISK_B\\LOL", new File("abcde.txt"));
-        dufs.printDirectoryContent("DISK_B");
-        dufs.printVolumeInfo();
-        //dufs.deleteFile("DISK_B\\LOL");
-        dufs.appendFile("DISK_B\\LOL", new File("abc.txt"));
-        dufs.printDirectoryContent("DISK_B");
+        dufs.printVolumeRecords();
+        dufs.deleteFile("DISK_B\\ZOZA");
+        dufs.printVolumeRecords();
+        dufs.writeFile("DISK_B\\LOL", new File("abc.txt"));
         dufs.createFile("DISK_B", "kolpak");
-        dufs.printDirectoryContent("DISK_B");
-        dufs.readFile("DISK_B\\LOL", new File("LOL.txt"));
+        dufs.renameFile("DISK_B\\LOL", "kapusta");
+        dufs.printVolumeRecords();
+        dufs.writeFile("DISK_B\\kolpak", new File("abcde.txt"));
+        dufs.printDirectoryTree();
+        dufs.printVolumeRecords();
+        //dufs.renameFile("DISK_B\\LOL", "kapusta");
+        //dufs.printVolumeRecords();
+//        dufs.printDirectoryContent("DISK_B");
+//        dufs.printVolumeInfo();
+//        dufs.appendFile("DISK_B\\LOL", new File("abc.txt"));
+//        dufs.printDirectoryContent("DISK_B");
+//        dufs.createFile("DISK_B", "kolpak");
+//        dufs.printDirectoryContent("DISK_B");
+//        dufs.readFile("DISK_B\\LOL", new File("LOL.txt"));
     }
 }
