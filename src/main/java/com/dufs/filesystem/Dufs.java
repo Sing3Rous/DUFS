@@ -88,7 +88,6 @@ public class Dufs {
         reservedSpace.setNextRecordIndex(VolumeUtility.findNextFreeRecordIndex(volume, reservedSpace));
         VolumeUtility.updateVolumeNextRecordIndex(volume, reservedSpace.getNextRecordIndex());
         VolumeUtility.createClusterIndexChain(volume, reservedSpace, firstClusterIndex);
-
         VolumeUtility.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
     }
 
@@ -203,7 +202,7 @@ public class Dufs {
         if (!Parser.isRecordNameOk(newName)) {
             throw new DufsException("New file name contains prohibited symbols.");
         }
-        int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
+        int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, Parser.joinPath(Parser.parsePathBeforeFile(path)));
         if (!VolumeUtility.isNameUniqueInDirectory(volume, reservedSpace, directoryIndex, newName.toCharArray(), (byte) 1)) {
             throw new DufsException("File with such name already contains in this path.");
         }
@@ -275,7 +274,6 @@ public class Dufs {
     public void printDirectoryTree() throws IOException {
         String rootName = new String(reservedSpace.getVolumeName()).replace("\u0000", "");
         System.out.println(rootName);
-        System.out.println();
         PrintUtility.dfsPrintRecords(volume, reservedSpace, 0, 1);
     }
     
