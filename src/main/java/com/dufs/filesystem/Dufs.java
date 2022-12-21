@@ -78,7 +78,7 @@ public class Dufs {
             throw new DufsException(recordType + " name contains prohibited symbols.");
         }
         int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
-        if (!VolumeUtility.isNameUniqueInDirectory(volume, reservedSpace, directoryIndex, name.toCharArray(), (byte) 1)) {
+        if (!VolumeUtility.isNameUniqueInDirectory(volume, reservedSpace, directoryIndex, name.toCharArray(), isFile)) {
             throw new DufsException(recordType + " with such name already contains in this path.");
         }
         if (!VolumeUtility.enoughSpace(reservedSpace, 0)) {
@@ -228,7 +228,8 @@ public class Dufs {
             throw new DufsException("File does not exist.");
         }
         int newDirectoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, newPath);
-        int newDirectoryIndexOrderNumber = VolumeUtility.addRecordIndexInDirectoryCluster(volume, reservedSpace, dufsFileIndex, newDirectoryIndex);
+        Record newDirectory = VolumeUtility.readRecordFromVolume(volume, reservedSpace, newDirectoryIndex);
+        int newDirectoryIndexOrderNumber = VolumeUtility.addRecordIndexInDirectoryCluster(volume, reservedSpace, dufsFileIndex, newDirectory.getFirstClusterIndex());
         VolumeUtility.removeRecordIndexFromDirectoryCluster(volume, reservedSpace,
                 dufsFile.getParentDirectoryIndex(), dufsFile.getParentDirectoryIndexOrderNumber());
         VolumeUtility.updateRecordParentDirectory(volume, reservedSpace, dufsFileIndex, newDirectoryIndex, newDirectoryIndexOrderNumber);
