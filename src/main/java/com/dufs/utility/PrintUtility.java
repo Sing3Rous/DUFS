@@ -98,7 +98,7 @@ public class PrintUtility {
                 }
                 printRecordClusterChain(volume, record.getFirstClusterIndex());
                 if (record.getIsFile() == 0) {
-                    dfsPrintRecords(volume, reservedSpace, recordIndex, depth + 1);
+                    dfsPrintRecords(volume, reservedSpace, record.getFirstClusterIndex(), depth + 1);
                 }
                 System.out.println();
                 recordIndex = volume.readInt();
