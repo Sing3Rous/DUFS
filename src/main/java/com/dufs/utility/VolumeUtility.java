@@ -139,19 +139,19 @@ public class VolumeUtility {
     }
 
     public static int addRecordIndexInDirectoryCluster(RandomAccessFile volume, ReservedSpace reservedSpace,
-                                                        int recordIndex, int parentDirectoryIndex) throws IOException, DufsException {
+                                                        int recordIndex, int parentDirectoryClusterIndex) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
-        volume.seek(calculateClusterIndexPosition(parentDirectoryIndex));
+        volume.seek(calculateClusterIndexPosition(parentDirectoryClusterIndex));
         int nextClusterIndex = volume.readInt();
         if (nextClusterIndex == 0) {
             throw new DufsException("Parent directory cluster is empty.");
         }
-        volume.seek(calculateClusterPosition(reservedSpace, parentDirectoryIndex));
+        volume.seek(calculateClusterPosition(reservedSpace, parentDirectoryClusterIndex));
         int numberOfRecordsInDirectory = volume.readInt();
-        volume.seek(calculateClusterPosition(reservedSpace, parentDirectoryIndex));
+        volume.seek(calculateClusterPosition(reservedSpace, parentDirectoryClusterIndex));
         volume.writeInt(numberOfRecordsInDirectory + 1);
         int indexInsertionOffset = (int) (((numberOfRecordsInDirectory + 1) * 4L) % reservedSpace.getClusterSize());
-        int lastClusterIndex = findLastClusterIndex(volume, parentDirectoryIndex);
+        int lastClusterIndex = findLastClusterIndex(volume, parentDirectoryClusterIndex);
         if (indexInsertionOffset == 0) {    // if we need to allocate new cluster
             allocateInEmptyCluster(volume, reservedSpace, lastClusterIndex,
                     ByteBuffer.allocateDirect(4).putInt(recordIndex).array());
@@ -211,25 +211,34 @@ public class VolumeUtility {
             return 0;
         }
         int clusterIndex = 0;
+        long clusterIndexPosition = calculateClusterPosition(reservedSpace, clusterIndex) + 4;
         int recordIndex = 0;
-        for (String directory : records) {
+        for (int i = 1; i < records.length; ++i) {
+            boolean hasFound = false;
             do {
-                volume.seek(calculateClusterPosition(reservedSpace, clusterIndex) + 4); // skip 4 bytes in the beginning of directory's cluster
+                volume.seek(clusterIndexPosition);
                 recordIndex = volume.readInt();
                 int counter = 0;
                 while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {
                     Record record = readRecordFromVolume(volume, reservedSpace, recordIndex);
-                    if (Arrays.equals(directory.toCharArray(), record.getName())
+                    if (Arrays.equals(Arrays.copyOf(records[i].toCharArray(), 32), record.getName())
                             && record.getIsFile() == 0) {
+                        clusterIndex = record.getFirstClusterIndex();
+                        clusterIndexPosition = calculateClusterPosition(reservedSpace, clusterIndex) + 4;
+                        hasFound = true;
                         break;
                     }
                     recordIndex = volume.readInt();
                     counter++;
                 }
+                if (hasFound) {
+                    break;
+                }
                 if (recordIndex == 0) {
                     throw new DufsException("Given path does not exist.");
                 }
                 clusterIndex = findNextClusterIndex(volume, clusterIndex);
+                clusterIndexPosition = calculateClusterPosition(reservedSpace, clusterIndex);
             } while (clusterIndex != -1);
         }
         volume.seek(defaultFilePointer);
@@ -244,11 +253,13 @@ public class VolumeUtility {
         int directoryIndex = findDirectoryIndex(volume, reservedSpace, Parser.joinPath(Parser.parsePathBeforeFile(path)));
         String fileName = Parser.parseFileNameInPath(path);
         volume.seek(calculateClusterPosition(reservedSpace, directoryIndex));
-        int clusterIndex = 0;
+        Record directory = readRecordFromVolume(volume, reservedSpace, directoryIndex);
+        int clusterIndex = directory.getFirstClusterIndex();
+        long clusterIndexPos = calculateClusterPosition(reservedSpace, clusterIndex) + 4;
         int recordIndex;
         boolean hasFound = false;
         do {
-            volume.seek(calculateClusterPosition(reservedSpace, clusterIndex) + 4); // skip 4 bytes in the beginning of directory's cluster
+            volume.seek(clusterIndexPos); // skip 4 bytes in the beginning of directory's cluster
             recordIndex = volume.readInt();
             int counter = 0;
             while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {
@@ -268,6 +279,7 @@ public class VolumeUtility {
                 throw new DufsException("Given path does not exist.");
             }
             clusterIndex = findNextClusterIndex(volume, clusterIndex);
+            clusterIndexPos = calculateClusterPosition(reservedSpace, clusterIndex);
         } while (clusterIndex != -1);
         volume.seek(defaultFilePointer);
         return recordIndex;
@@ -503,9 +515,9 @@ public class VolumeUtility {
         int numberOfRecordsInDirectory = volume.readInt();
         volume.seek(clusterPosition);
         volume.writeInt(numberOfRecordsInDirectory - 1);
-        int neededClusterOrderNumber = Math.floorDiv(parentDirectoryIndexOrderNumber * 4, reservedSpace.getClusterSize());
         // traverse cluster chain to find neededClusterIndex and lastClusterIndex
         int clusterIndex = parentDirectoryIndex;
+        int neededClusterOrderNumber = clusterIndex + Math.floorDiv(parentDirectoryIndexOrderNumber * 4, reservedSpace.getClusterSize());
         long neededClusterIndexPosition = 0;
         do {
             if (clusterIndex == neededClusterOrderNumber) {
