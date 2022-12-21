@@ -1,6 +1,7 @@
 package com.dufs.model;
 
 import com.dufs.utility.DateUtility;
+import com.dufs.utility.VolumeHelperUtility;
 import com.dufs.utility.VolumeUtility;
 
 import java.nio.ByteBuffer;
@@ -8,7 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class ReservedSpace {
-    private final int dufsNoseSignature = 0x44554653; // "DUFS"
+    private int dufsNoseSignature = 0x44554653; // "DUFS"
     private final char[] volumeName;
     private final int clusterSize;
     private final long volumeSize;
@@ -20,7 +21,7 @@ public class ReservedSpace {
     private int nextClusterIndex;
     private int freeClusters;
     private int nextRecordIndex;
-    private final int dufsTailSignature = 0x4A455442; // "JETB"
+    private int dufsTailSignature = 0x4A455442; // "JETB"
 
     public int getDufsNoseSignature() {
         return dufsNoseSignature;
@@ -97,8 +98,8 @@ public class ReservedSpace {
     public ReservedSpace(char[] volumeName, int clusterSize, long volumeSize) {
         this.volumeName = volumeName;
         this.clusterSize = clusterSize;
-        this.volumeSize = VolumeUtility.calculateVolumeSize(clusterSize, volumeSize);
-        this.reservedClusters = VolumeUtility.clustersAmount(clusterSize, volumeSize);
+        this.volumeSize = VolumeHelperUtility.calculateVolumeSize(clusterSize, volumeSize);
+        this.reservedClusters = VolumeHelperUtility.clustersAmount(clusterSize, volumeSize);
         this.createDate = DateUtility.dateToShort(LocalDate.now());
         this.createTime = DateUtility.timeToShort(LocalDateTime.now());
         this.lastDefragmentationDate = this.createDate;
@@ -108,9 +109,10 @@ public class ReservedSpace {
         this.nextRecordIndex = 1;
     }
 
-    public ReservedSpace(char[] volumeName, int clusterSize, long volumeSize, int reservedClusters,
+    public ReservedSpace(int noseSignature, char[] volumeName, int clusterSize, long volumeSize, int reservedClusters,
                          short createDate, short createTime, short lastDefragmentationDate, short lastDefragmentationTime,
-                         int nextClusterIndex, int freeClustersCount, int nextRecordIndex) {
+                         int nextClusterIndex, int freeClustersCount, int nextRecordIndex, int tailSignature) {
+        this.dufsNoseSignature = noseSignature;
         this.volumeName = volumeName;
         this.clusterSize = clusterSize;
         this.volumeSize = volumeSize;
@@ -122,6 +124,7 @@ public class ReservedSpace {
         this.nextClusterIndex = nextClusterIndex;
         this.freeClusters = freeClustersCount;
         this.nextRecordIndex = nextRecordIndex;
+        this.dufsTailSignature = tailSignature;
     }
 
     public byte[] serialize() {
