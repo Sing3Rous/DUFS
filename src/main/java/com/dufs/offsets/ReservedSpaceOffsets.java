@@ -15,4 +15,6 @@ public class ReservedSpaceOffsets {
     public static final int FREE_CLUSTERS_OFFSET = 48;
     public static final int NEXT_RECORD_INDEX_OFFSET = 52;
     public static final int DUFS_TAIL_SIGNATURE_OFFSET = 56;
+
+    public static final int RESERVED_SPACE_SIZE = 60;
 }
