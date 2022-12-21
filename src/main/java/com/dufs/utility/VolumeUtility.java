@@ -389,6 +389,14 @@ public class VolumeUtility {
         return true;
     }
 
+    public static boolean isDirectoryEmpty(RandomAccessFile volume, ReservedSpace reservedSpace, int directoryIndex) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(calculateClusterPosition(reservedSpace, directoryIndex));
+        int numberOfRecords = volume.readInt();
+        volume.seek(defaultFilePointer);
+        return (numberOfRecords == 0);
+    }
+
     public static int findNextClusterIndex(RandomAccessFile volume, int clusterIndex) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(calculateClusterIndexPosition(clusterIndex));
@@ -412,6 +420,15 @@ public class VolumeUtility {
 
     public static int howMuchClustersNeeds(ReservedSpace reservedSpace, long size) {
         return (int) Math.ceilDiv(size, reservedSpace.getClusterSize());
+    }
+
+    public static int howMuchClusterTakes(RandomAccessFile volume, ReservedSpace reservedSpace, int directoryIndex) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(calculateClusterPosition(reservedSpace, directoryIndex));
+        int numberOfRecords = volume.readInt();
+        int numberOfClusters = (numberOfRecords * 4) / reservedSpace.getClusterSize();
+        volume.seek(defaultFilePointer);
+        return numberOfClusters;
     }
 
     public static long calculateVolumeSize(int clusterSize, long volumeSize) {

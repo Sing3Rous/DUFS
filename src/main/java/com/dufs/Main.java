@@ -12,13 +12,13 @@ public class Main {
         dufs.mountVolume("DISK_B", 4096, 4096000);
         //dufs.attachVolume("DISK_B");
         dufs.printVolumeInfo();
-        dufs.createFile("DISK_B", "LOL");
-        dufs.createFile("DISK_B", "ZOZA");
+        dufs.createRecord("DISK_B", "LOL", (byte) 1);
+        dufs.createRecord("DISK_B", "ZOZA", (byte) 1);
         dufs.printVolumeRecords();
         dufs.deleteFile("DISK_B\\ZOZA");
         dufs.printVolumeRecords();
         dufs.writeFile("DISK_B\\LOL", new File("abc.txt"));
-        dufs.createFile("DISK_B", "kolpak");
+        dufs.createRecord("DISK_B", "kolpak", (byte) 1);
         dufs.renameFile("DISK_B\\LOL", "kapusta");
         dufs.printVolumeRecords();
         dufs.writeFile("DISK_B\\kolpak", new File("abcde.txt"));

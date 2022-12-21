@@ -64,26 +64,32 @@ public class Dufs {
         }
     }
 
-    public void createFile(String path, String name) throws IOException, DufsException {
+    public void createRecord(String path, String name, byte isFile) throws IOException, DufsException {
+        String recordType = "";
+        if (isFile == 1) {
+            recordType += "File";
+        } else {
+            recordType += "Directory";
+        }
         if (name.length() > 32) {
-            throw new DufsException("File name length has exceeded the limit.");
+            throw new DufsException(recordType + " name length has exceeded the limit.");
         }
         if (!Parser.isRecordNameOk(name)) {
-            throw new DufsException("File name contains prohibited symbols.");
+            throw new DufsException(recordType + " name contains prohibited symbols.");
         }
         int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
         if (!VolumeUtility.isNameUniqueInDirectory(volume, reservedSpace, directoryIndex, name.toCharArray(), (byte) 1)) {
-            throw new DufsException("File with such name already contains in this path.");
+            throw new DufsException(recordType + " with such name already contains in this path.");
         }
         if (!VolumeUtility.enoughSpace(reservedSpace, 0)) {
-            throw new DufsException("Not enough space in the volume to create new file.");
+            throw new DufsException("Not enough space in the volume to create new " + recordType + ".");
         }
         int firstClusterIndex = reservedSpace.getNextClusterIndex();
         reservedSpace.setNextClusterIndex(VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace));
         VolumeUtility.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
         int recordIndex = reservedSpace.getNextRecordIndex();
         int directoryOrderNumber = VolumeUtility.addRecordIndexInDirectoryCluster(volume, reservedSpace, recordIndex, directoryIndex);
-        Record file = new Record(name.toCharArray(), firstClusterIndex, directoryIndex, directoryOrderNumber, (byte) 1);
+        Record file = new Record(name.toCharArray(), firstClusterIndex, directoryIndex, directoryOrderNumber, isFile);
         VolumeUtility.writeRecordToVolume(volume, reservedSpace, recordIndex, file);
         reservedSpace.setNextRecordIndex(VolumeUtility.findNextFreeRecordIndex(volume, reservedSpace));
         VolumeUtility.updateVolumeNextRecordIndex(volume, reservedSpace.getNextRecordIndex());
@@ -190,7 +196,8 @@ public class Dufs {
             throw new DufsException("File does not exist.");
         }
         VolumeUtility.deleteRecord(volume, reservedSpace, dufsFile, dufsFileIndex);
-        int freeClusters = reservedSpace.getFreeClusters() - VolumeUtility.howMuchClustersNeeds(reservedSpace, dufsFile.getSize());
+        int freeClusters = reservedSpace.getFreeClusters()
+                + Math.max(1, VolumeUtility.howMuchClustersNeeds(reservedSpace, dufsFile.getSize()));
         reservedSpace.setFreeClusters(freeClusters);
         VolumeUtility.updateVolumeFreeClusters(volume, freeClusters);
     }
@@ -227,20 +234,48 @@ public class Dufs {
         VolumeUtility.updateRecordParentDirectory(volume, reservedSpace, dufsFileIndex, newDirectoryIndex, newDirectoryIndexOrderNumber);
     }
     
-    public void createDir(String path, String name) {
-
+    public void deleteDir(String path, String name) throws IOException, DufsException {
+        int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, path);
+        if (!VolumeUtility.isDirectoryEmpty(volume, reservedSpace, directoryIndex)) {
+            throw new DufsException("Directory is not empty");
+        }
+        Record dufsDirectory = VolumeUtility.readRecordFromVolume(volume, reservedSpace, directoryIndex);
+        VolumeUtility.deleteRecord(volume, reservedSpace, dufsDirectory, directoryIndex);
+        int freeClusters = reservedSpace.getFreeClusters()
+                + Math.max(1, VolumeUtility.howMuchClusterTakes(volume, reservedSpace, directoryIndex));
+        reservedSpace.setFreeClusters(freeClusters);
+        VolumeUtility.updateVolumeFreeClusters(volume, freeClusters);
     }
     
-    public void deleteDir(String path, String name) {
-
+    public void renameDir(String path, String newName) throws DufsException, IOException {
+        if (newName.length() > 32) {
+            throw new DufsException("New file name length has exceeded the limit.");
+        }
+        if (!Parser.isRecordNameOk(newName)) {
+            throw new DufsException("New file name contains prohibited symbols.");
+        }
+        int directoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, Parser.joinPath(Parser.parsePathBeforeFile(path)));
+        if (!VolumeUtility.isNameUniqueInDirectory(volume, reservedSpace, directoryIndex, newName.toCharArray(), (byte) 0)) {
+            throw new DufsException("File with such name already contains in this path.");
+        }
+        Record dufsDirectory = VolumeUtility.readRecordFromVolume(volume, reservedSpace, directoryIndex);
+        if (!VolumeUtility.recordExists(volume, dufsDirectory.getFirstClusterIndex()) && (dufsDirectory.getIsFile() == 0)) {
+            throw new DufsException("File does not exist.");
+        }
+        VolumeUtility.updateRecordName(volume, reservedSpace, directoryIndex, Arrays.copyOf(newName.toCharArray(), 32));
     }
     
-    public void renameDir(String path, String oldName, String newName) {
-
-    }
-    
-    public void moveDir(String oldPath, String name, String newPath) {
-
+    public void moveDir(String path, String newPath) throws IOException, DufsException {
+        int dufsDirectoryIndex = VolumeUtility.findFileIndex(volume, reservedSpace, path);
+        Record dufsDirectory = VolumeUtility.readRecordFromVolume(volume, reservedSpace, dufsDirectoryIndex);
+        if (!VolumeUtility.recordExists(volume, dufsDirectory.getFirstClusterIndex()) && (dufsDirectory.getIsFile() == 0)) {
+            throw new DufsException("File does not exist.");
+        }
+        int newDirectoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, newPath);
+        int newDirectoryIndexOrderNumber = VolumeUtility.addRecordIndexInDirectoryCluster(volume, reservedSpace, dufsDirectoryIndex, newDirectoryIndex);
+        VolumeUtility.removeRecordIndexFromDirectoryCluster(volume, reservedSpace,
+                dufsDirectory.getParentDirectoryIndex(), dufsDirectory.getParentDirectoryIndexOrderNumber());
+        VolumeUtility.updateRecordParentDirectory(volume, reservedSpace, dufsDirectoryIndex, newDirectoryIndex, newDirectoryIndexOrderNumber);
     }
     
     public void printDirectoryContent(String path) throws IOException, DufsException {
