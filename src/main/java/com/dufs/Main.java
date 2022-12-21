@@ -10,28 +10,27 @@ public class Main {
     public static void main(String[] args) throws IOException, DufsException {
         Dufs dufs = new Dufs();
         dufs.mountVolume("DISK_B", 4096, 4096000);
-        //dufs.attachVolume("DISK_B");
-        dufs.printVolumeInfo();
-        dufs.createRecord("DISK_B", "LOL", (byte) 1);
-        dufs.createRecord("DISK_B", "ZOZA", (byte) 1);
+        dufs.createRecord("DISK_B", "papka", (byte) 0);
+        dufs.createRecord("DISK_B", "failik", (byte) 1);
+        dufs.createRecord("DISK_B\\papka", "failikvpapke", (byte) 1);
+        dufs.createRecord("DISK_B\\papka",  "papkavpapke", (byte) 0);
+        dufs.createRecord("DISK_B\\papka\\papkavpapke", "ocherednoi", (byte) 1);
+        dufs.printDirectoryTree();
+        dufs.writeFile("DISK_B\\papka\\papkavpapke\\ocherednoi", new File("abc.txt"));
+        dufs.writeFile("DISK_B\\failik", new File("abc.txt"));
+        dufs.appendFile("DISK_B\\papka\\papkavpapke\\ocherednoi", new File("abc.txt"));
         dufs.printVolumeRecords();
-        dufs.deleteFile("DISK_B\\ZOZA");
+        System.out.println("***************************");
+        dufs.renameFile("DISK_B\\papka\\papkavpapke\\ocherednoi", "kolpak");
         dufs.printVolumeRecords();
-        dufs.writeFile("DISK_B\\LOL", new File("abc.txt"));
-        dufs.createRecord("DISK_B", "kolpak", (byte) 1);
-        dufs.renameFile("DISK_B\\LOL", "kapusta");
-        dufs.printVolumeRecords();
-        dufs.writeFile("DISK_B\\kolpak", new File("abcde.txt"));
+        System.out.println("***************************");
+        dufs.moveFile("DISK_B\\papka\\papkavpapke\\kolpak", "DISK_B\\papka");
+        dufs.deleteFile("DISK_B\\papka\\kolpak");
         dufs.printDirectoryTree();
         dufs.printVolumeRecords();
-        //dufs.renameFile("DISK_B\\LOL", "kapusta");
-        //dufs.printVolumeRecords();
-//        dufs.printDirectoryContent("DISK_B");
-//        dufs.printVolumeInfo();
-//        dufs.appendFile("DISK_B\\LOL", new File("abc.txt"));
-//        dufs.printDirectoryContent("DISK_B");
-//        dufs.createFile("DISK_B", "kolpak");
-//        dufs.printDirectoryContent("DISK_B");
-//        dufs.readFile("DISK_B\\LOL", new File("LOL.txt"));
+        dufs.createRecord("DISK_B\\papka", "NOVOE", (byte) 0);
+        dufs.printDirectoryTree();
+        dufs.moveFile("DISK_B\\failik", "DISK_B\\papka\\NOVOE");
+        dufs.printDirectoryTree();
     }
 }
