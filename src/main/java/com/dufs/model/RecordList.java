@@ -1,14 +1,14 @@
 package com.dufs.model;
 
-import com.dufs.utility.VolumeUtility;
+import com.dufs.utility.VolumeHelperUtility;
 
 import java.nio.ByteBuffer;
 
 public class RecordList {
-    private Record[] records;
+    private final Record[] records;
 
     public RecordList(int clusterSize, long volumeSize) {
-        records = new Record[VolumeUtility.clustersAmount(clusterSize, volumeSize)];
+        records = new Record[VolumeHelperUtility.clustersAmount(clusterSize, volumeSize)];
         for (int i = 0; i < records.length; ++i) {
             records[i] = new Record();
         }
