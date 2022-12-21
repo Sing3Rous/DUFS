@@ -1,14 +1,14 @@
 package com.dufs.model;
 
-import com.dufs.utility.VolumeUtility;
+import com.dufs.utility.VolumeHelperUtility;
 
 import java.nio.ByteBuffer;
 
 public class ClusterIndexList {
-    private ClusterIndexElement[] clusterIndexElements;
+    private final ClusterIndexElement[] clusterIndexElements;
 
     public ClusterIndexList(int clusterSize, long volumeSize) {
-        clusterIndexElements = new ClusterIndexElement[VolumeUtility.clustersAmount(clusterSize, volumeSize)];
+        clusterIndexElements = new ClusterIndexElement[VolumeHelperUtility.clustersAmount(clusterSize, volumeSize)];
         for (int i = 0; i < clusterIndexElements.length; ++i) {
             clusterIndexElements[i] = new ClusterIndexElement();
         }
