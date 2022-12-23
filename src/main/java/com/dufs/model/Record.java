@@ -123,20 +123,4 @@ public class Record {
         buffer.get(tmp, 0, bytesCount);
         return tmp;
     }
-
-    // maybe should be remade by using StringBuffer or StringBuilder
-    @Override
-    public String toString() {
-        return "Record{" +
-                "name=" + Arrays.toString(name) +
-                ", createDate=" + createDate +
-                ", createTime=" + createTime +
-                ", firstClusterIndex=" + firstClusterIndex +
-                ", lastEditDate=" + lastEditDate +
-                ", lastEditTime=" + lastEditTime +
-                ", size=" + size +
-                ", parentDirectoryIndex=" + parentDirectoryIndex +
-                ", isFile=" + isFile +
-                '}';
-    }
 }
