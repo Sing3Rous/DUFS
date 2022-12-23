@@ -34,7 +34,7 @@ public class PrintUtility {
             recordIndex = volume.readInt();
             int counter = 0;
             while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {
-                Record record = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, recordIndex);
+                Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex);
                 printRecord(record);
                 recordIndex = volume.readInt();
                 counter++;
@@ -88,7 +88,7 @@ public class PrintUtility {
             recordIndex = volume.readInt();
             int counter = 0;
             while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {
-                Record record = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, recordIndex);
+                Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex);
                 String name = new String(record.getName()).replace("\u0000", "");
                 for (int i = 0; i < depth; ++i) {
                     System.out.print("|\t");
@@ -108,8 +108,8 @@ public class PrintUtility {
     public static void printRecords(RandomAccessFile volume, ReservedSpace reservedSpace) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
         for (int i = 1; i < reservedSpace.getReservedClusters(); ++i) {
-            Record record = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, i);
-            if (VolumeHelperUtility.recordExists(volume, reservedSpace, i)) {
+            Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, i);
+            if (VolumeHelper.recordExists(volume, reservedSpace, i)) {
                 System.out.print("#" + i + ", ");
                 if (record.getIsFile() == 1) {
                     System.out.print("(FILE)");

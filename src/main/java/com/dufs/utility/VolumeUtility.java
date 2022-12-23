@@ -100,7 +100,7 @@ public class VolumeUtility {
                 recordIndex = volume.readInt();
                 int counter = 0;
                 while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {    // iterate over record indexes in the cluster
-                    Record record = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, recordIndex);
+                    Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex);
                     if (Arrays.equals(Arrays.copyOf(records[i].toCharArray(), 32), record.getName())
                             && record.getIsFile() == 0) {
                         clusterIndex = record.getFirstClusterIndex();
@@ -132,7 +132,7 @@ public class VolumeUtility {
         long defaultFilePointer = volume.getFilePointer();
         int directoryIndex = findDirectoryIndex(volume, reservedSpace, Parser.joinPath(Parser.parsePathBeforeFile(path)));
         String fileName = Parser.parseFileNameInPath(path);
-        Record directory = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, directoryIndex);
+        Record directory = VolumeIO.readRecordFromVolume(volume, reservedSpace, directoryIndex);
         int clusterIndex = directory.getFirstClusterIndex();                                // start traverse from the last directory in path
         long clusterIndexPos = VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex) + 4;   // skip first 4 bytes of root's cluster
         int recordIndex;
@@ -142,7 +142,7 @@ public class VolumeUtility {
             recordIndex = volume.readInt();
             int counter = 0;
             while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {    // iterate over record indexes in the cluster
-                Record record = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, recordIndex);
+                Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex);
                 if (Arrays.equals(Arrays.copyOf(fileName.toCharArray(), 32), record.getName())
                         && record.getIsFile() == 1) {
                     hasFound = true;
@@ -262,7 +262,7 @@ public class VolumeUtility {
         volume.seek(clusterPosition);
         volume.writeInt(numberOfRecordsInDirectory - 1);
         // traverse cluster chain to find neededClusterIndex and lastClusterIndex
-        Record directory = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, parentDirectoryIndex);
+        Record directory = VolumeIO.readRecordFromVolume(volume, reservedSpace, parentDirectoryIndex);
         int clusterIndex = directory.getFirstClusterIndex();
         int neededClusterOrderNumber = Math.floorDiv(parentDirectoryIndexOrderNumber * 4, reservedSpace.getClusterSize());
         int clusterOrderNumber = 0;

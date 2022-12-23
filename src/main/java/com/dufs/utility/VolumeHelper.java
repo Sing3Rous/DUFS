@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
 
-public class VolumeHelperUtility {
+public class VolumeHelper {
     public static int howMuchClustersNeeds(ReservedSpace reservedSpace, long size) {
         return (int) Math.ceilDiv(size, reservedSpace.getClusterSize());
     }
@@ -38,7 +38,7 @@ public class VolumeHelperUtility {
     }
 
     public static boolean enoughSpace(ReservedSpace reservedSpace, long size) {
-        return (reservedSpace.getFreeClusters() - VolumeHelperUtility.howMuchClustersNeeds(reservedSpace, size)) > 0;
+        return (reservedSpace.getFreeClusters() - VolumeHelper.howMuchClustersNeeds(reservedSpace, size)) > 0;
     }
 
     public static boolean recordExists(RandomAccessFile volume, int firstClusterIndex) throws IOException {
@@ -74,7 +74,7 @@ public class VolumeHelperUtility {
             recordIndex = volume.readInt();
             int counter = 0;
             while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {
-                Record record = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, recordIndex);
+                Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex);
                 if (Arrays.equals(Arrays.copyOf(name, 32), record.getName()) && record.getIsFile() == isFile) {
                     return false;
                 }

@@ -10,7 +10,7 @@ import java.io.RandomAccessFile;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-public class VolumeIOUtility {
+public class VolumeIO {
     public static void initializeRootCluster(RandomAccessFile volume) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0)); // set file pointer to root's first cluster
