@@ -51,6 +51,9 @@ public class VolumeUtility {
 
     public static void deleteRecord(RandomAccessFile volume, ReservedSpace reservedSpace,
                                     Record record, int recordIndex) throws IOException, DufsException {
+        if (recordIndex == 0) {
+            throw new DufsException("Root's record cannot be modified");
+        }
         long defaultFilePointer = volume.getFilePointer();
         int firstClusterIndex = record.getFirstClusterIndex();
         volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex));
