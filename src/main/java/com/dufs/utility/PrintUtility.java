@@ -107,7 +107,7 @@ public class PrintUtility {
 
     public static void printRecords(RandomAccessFile volume, ReservedSpace reservedSpace) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
-        for (int i = 1; i < reservedSpace.getReservedClusters(); ++i) {
+        for (int i = 0; i < reservedSpace.getReservedClusters(); ++i) {
             Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, i);
             if (VolumeHelper.recordExists(volume, reservedSpace, i)) {
                 System.out.print("#" + i + ", ");
