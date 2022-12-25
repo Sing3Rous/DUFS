@@ -41,7 +41,7 @@ public class DateUtility {
     public static int[] shortToTime(short encodedTime) {
         final int hour = (encodedTime & 0b1111100000000000) >> 11;
         final int minute = (encodedTime & 0b0000011111100000) >> 5;
-        final int doubleSecond = (encodedTime & 0b0000000000011111);
+        final int doubleSecond = (encodedTime & 0b0000000000011111) * 2;
         return new int[] { hour, minute, doubleSecond };
     }
 }
