@@ -41,8 +41,8 @@ class DufsTest {
     @Test
     void mountVolume_fileExistence() {
         assertEquals("Volume with such name already exists in this directory.",
-                assertThrows(DufsException.class, () ->
-                dufs.mountVolume(file.getName(), Mockito.anyInt(), Mockito.anyLong())).getMessage());
+                assertThrows(DufsException.class,
+                        () -> dufs.mountVolume(file.getName(), Mockito.anyInt(), Mockito.anyLong())).getMessage());
     }
 
     @Test
@@ -94,7 +94,6 @@ class DufsTest {
         assertEquals(reservedSpace.getDufsTailSignature(), 0x4A455442);
         volume.close();
         dufs.closeVolume();
-        file.delete();
     }
 
     @Test
