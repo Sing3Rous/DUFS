@@ -23,7 +23,7 @@ public class VolumePointerUtility {
                 + (long) reservedSpace.getReservedClusters() * ClusterIndexListOffsets.CLUSTER_INDEX_ELEMENT_SIZE;
     }
 
-    private static long calculateClustersAreaOffset(ReservedSpace reservedSpace) {
+    public static long calculateClustersAreaOffset(ReservedSpace reservedSpace) {
         return calculateRecordListOffset(reservedSpace)
                 + (long) RecordListOffsets.RECORD_SIZE * reservedSpace.getReservedClusters();
     }
