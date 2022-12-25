@@ -53,6 +53,7 @@ public class Dufs {
         VolumeIO.initializeRootCluster(volume);
         RecordList recordList = new RecordList(clusterSize, nettoVolumeSize);
         volume.write(recordList.serialize());
+        VolumeIO.initializeRootRecord(volume, reservedSpace);
     }
 
     public void attachVolume(String path) throws DufsException, IOException {
@@ -227,7 +228,7 @@ public class Dufs {
                     + Math.max(1, VolumeHelper.howMuchClustersNeeds(reservedSpace, dufsRecord.getSize()));
         } else {
             freeClusters = reservedSpace.getFreeClusters()
-                    + Math.max(1, VolumeHelper.howMuchClusterDirectoryTakes(volume, reservedSpace, dufsRecordIndex));
+                    + Math.max(1, VolumeHelper.howMuchClustersDirectoryTakes(volume, reservedSpace, dufsRecordIndex));
         }
         reservedSpace.setFreeClusters(freeClusters);
         VolumeIO.updateVolumeFreeClusters(volume, freeClusters);
