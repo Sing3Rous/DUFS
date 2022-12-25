@@ -16,21 +16,21 @@ public class VolumeHelper {
         return (int) Math.ceilDiv(size, reservedSpace.getClusterSize());
     }
 
-    public static int howMuchClusterDirectoryTakes(RandomAccessFile volume, ReservedSpace reservedSpace, int directoryIndex) throws IOException {
+    public static int howMuchClustersDirectoryTakes(RandomAccessFile volume, ReservedSpace reservedSpace, int directoryIndex) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, directoryIndex));
         int numberOfRecords = volume.readInt();
-        int numberOfClusters = (numberOfRecords * 4) / reservedSpace.getClusterSize();
+        int numberOfClusters = Math.max(1, (numberOfRecords * 4) / reservedSpace.getClusterSize());
         volume.seek(defaultFilePointer);
         return numberOfClusters;
     }
 
-    public static long calculateVolumeSize(int clusterSize, long volumeSize) {
-        int clustersAmount = clustersAmount(clusterSize, volumeSize);
+    public static long calculateVolumeSize(int clusterSize, long nettoVolumeSize) {
+        int clustersAmount = clustersAmount(clusterSize, nettoVolumeSize);
         return ReservedSpaceOffsets.RESERVED_SPACE_SIZE
                 + ((long) ClusterIndexListOffsets.CLUSTER_INDEX_ELEMENT_SIZE * clustersAmount)
                 + ((long) RecordListOffsets.RECORD_SIZE * clustersAmount)
-                + volumeSize;
+                + nettoVolumeSize;
     }
 
     public static int clustersAmount(int clusterSize, long volumeSize) {
@@ -38,7 +38,7 @@ public class VolumeHelper {
     }
 
     public static boolean enoughSpace(ReservedSpace reservedSpace, long size) {
-        return (reservedSpace.getFreeClusters() - VolumeHelper.howMuchClustersNeeds(reservedSpace, size)) > 0;
+        return (reservedSpace.getFreeClusters() - VolumeHelper.howMuchClustersNeeds(reservedSpace, size)) >= 0;
     }
 
     public static boolean recordExists(RandomAccessFile volume, int firstClusterIndex) throws IOException {
