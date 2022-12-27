@@ -18,16 +18,16 @@ class VolumeHelperTest {
     private static ReservedSpace reservedSpace;
     private static File file;
 
-    @BeforeAll
-    static void init() throws IOException, DufsException {
+    @BeforeEach
+    void init() throws IOException, DufsException {
         file = new File("vol.DUFS");
         dufs = new Dufs();
         dufs.mountVolume(file.getName(), 4096, 4096000);
         reservedSpace = VolumeIO.readReservedSpaceFromVolume(dufs.getVolume());
     }
 
-    @AfterAll
-    static void deleteFile() throws IOException {
+    @AfterEach
+    void deleteFile() throws IOException {
         dufs.closeVolume();
         file.delete();
     }
@@ -89,7 +89,7 @@ class VolumeHelperTest {
     }
 
     @Test
-    void isNameUniqueInDirectory_true() throws IOException {
+    void isNameUniqueInDirectory_true() throws IOException, DufsException {
         assertTrue(VolumeHelper.isNameUniqueInDirectory(dufs.getVolume(), reservedSpace, 0,
                 "unique".toCharArray(), (byte) 1));
     }

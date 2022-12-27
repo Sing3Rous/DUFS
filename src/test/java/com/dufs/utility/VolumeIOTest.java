@@ -6,10 +6,7 @@ import com.dufs.model.Record;
 import com.dufs.model.ReservedSpace;
 import com.dufs.offsets.RecordOffsets;
 import com.dufs.offsets.ReservedSpaceOffsets;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 
@@ -29,16 +26,16 @@ class VolumeIOTest {
     private static ReservedSpace reservedSpace;
     private static File file;
 
-    @BeforeAll
-    static void init() throws IOException, DufsException {
+    @BeforeEach
+    void init() throws IOException, DufsException {
         file = new File("vol.DUFS");
         dufs = new Dufs();
         dufs.mountVolume(file.getName(), 4096, 4096000);
         reservedSpace = VolumeIO.readReservedSpaceFromVolume(dufs.getVolume());
     }
 
-    @AfterAll
-    static void deleteFile() throws IOException {
+    @AfterEach
+    void deleteFile() throws IOException {
         dufs.closeVolume();
         file.delete();
     }
