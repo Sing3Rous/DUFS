@@ -6,6 +6,7 @@ import com.dufs.model.ReservedSpace;
 import com.dufs.offsets.ClusterIndexListOffsets;
 import com.dufs.offsets.RecordListOffsets;
 import com.dufs.offsets.RecordOffsets;
+import com.dufs.offsets.ReservedSpaceOffsets;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -18,7 +19,10 @@ public class VolumeUtility {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
         volume.writeInt(0xFFFFFFFF);    // ClusterIndexElement.nextClusterIndex
         volume.writeInt(0xFFFFFFFF);    // ClusterIndexElement.prevClusterIndex
-        reservedSpace.setNextClusterIndex(findNextFreeClusterIndex(volume, reservedSpace));
+        int nextClusterIndex = findNextFreeClusterIndex(volume, reservedSpace);
+        reservedSpace.setNextClusterIndex(nextClusterIndex);
+        volume.seek(ReservedSpaceOffsets.NEXT_CLUSTER_INDEX_OFFSET);
+        volume.writeInt(nextClusterIndex);
         volume.seek(defaultFilePointer);
     }
 
