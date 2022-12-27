@@ -89,6 +89,10 @@ public class VolumeUtility {
                                                     Arrays.copyOf((reservedSpace.getVolumeName()), 8))) {
             throw new DufsException("Given path is not correct");
         }
+        // check if root name is <= 8 symbols
+        if (records[0].length() > 8) {
+            throw new DufsException("Root name is incorrect.");
+        }
         // if there is only root in the path
         if (records.length == 1) {
             return 0;
@@ -215,15 +219,18 @@ public class VolumeUtility {
     /*
      * returns -1 if given cluster is the last in the chain
      */
-    public static int findNextClusterIndexInChain(RandomAccessFile volume, int clusterIndex) throws IOException {
+    public static int findNextClusterIndexInChain(RandomAccessFile volume, int clusterIndex) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
         int nextCluster = volume.readInt();
+        if (nextCluster == 0) {
+            throw new DufsException("Given cluster chain is broken.");
+        }
         volume.seek(defaultFilePointer);
-        return (nextCluster != 0xFFFFFFFF) ? nextCluster : -1; // what happens if cluster count is > 2^31?
+        return (nextCluster != 0xFFFFFFFF) ? nextCluster : -1;
     }
 
-    public static int findLastClusterIndexInChain(RandomAccessFile volume, int clusterIndex) throws IOException {
+    public static int findLastClusterIndexInChain(RandomAccessFile volume, int clusterIndex) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
         int prevIndex;
         int index = clusterIndex;
@@ -231,6 +238,9 @@ public class VolumeUtility {
             volume.seek(VolumePointerUtility.calculateClusterIndexPosition(index));
             prevIndex = index;
             index = volume.readInt();
+            if (index == 0) {
+                throw new DufsException("Given cluster chain is broken.");
+            }
         } while (index != 0xFFFFFFFF);
         volume.seek(defaultFilePointer);
         return prevIndex;
@@ -262,6 +272,9 @@ public class VolumeUtility {
         long clusterPosition = VolumePointerUtility.calculateClusterPosition(reservedSpace, parentDirectoryIndex);
         volume.seek(clusterPosition);
         int numberOfRecordsInDirectory = volume.readInt();
+        if (numberOfRecordsInDirectory == 0) {
+            throw new DufsException("Directory is empty.");
+        }
         volume.seek(clusterPosition);
         volume.writeInt(numberOfRecordsInDirectory - 1);
         // traverse cluster chain to find neededClusterIndex and lastClusterIndex
@@ -279,22 +292,31 @@ public class VolumeUtility {
             volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
             clusterIndex = volume.readInt();
         } while (clusterIndex != 0xFFFFFFFF);
-        int lastClusterIndex = volume.readInt(); // read ClusterIndexElement.prevClusterIndex
-        if (lastClusterIndex == 0xFFFFFFFF) {
+        int lastClusterIndex = volume.readInt();
+        if (lastClusterIndex != 0xFFFFFFFF) {
+            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(lastClusterIndex));  // read ClusterIndexElement.prevClusterIndex and seek to that cluster index
+            lastClusterIndex = volume.readInt();                                                // read index of last cluster in chain
+        } else {
             lastClusterIndex = parentDirectoryIndex;
         }
         int lastRecordPositionOffset = (int) ((numberOfRecordsInDirectory * 4L) % reservedSpace.getClusterSize());
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, lastClusterIndex) + lastRecordPositionOffset);
         long lastRecordPosition = volume.getFilePointer();
-        if (neededClusterIndexPosition == 0) {
-            throw new DufsException("Parent directory does not contain this record.");
-        }
         volume.seek(neededClusterIndexPosition);
         volume.writeInt(0);
         swapIndexesInDirectoryCluster(volume, neededClusterIndexPosition, lastRecordPosition);
+        // if last cluster becomes empty
+        if (numberOfRecordsInDirectory % (reservedSpace.getClusterSize() / 4) == 0) {
+            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(lastClusterIndex));
+            volume.writeInt(0);
+            int prevClusterIndex = volume.readInt();
+            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(prevClusterIndex));
+            volume.writeInt(0xFFFFFFFF);
+        }
         volume.seek(defaultFilePointer);
     }
 
+    // unsafe: doesn't check anything
     public static void swapIndexesInDirectoryCluster(RandomAccessFile volume, long pos1, long pos2) throws  IOException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(pos1);
@@ -308,6 +330,7 @@ public class VolumeUtility {
         volume.seek(defaultFilePointer);
     }
 
+    // unsafe: doesn't check anything
     public static void swapClusters(RandomAccessFile volume, ReservedSpace reservedSpace, int clusterIndex1, int clusterIndex2) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
         // swap clusters
