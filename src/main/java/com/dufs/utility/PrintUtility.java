@@ -64,7 +64,7 @@ public class PrintUtility {
         System.out.println();
     }
 
-    public static void printRecordClusterChain(RandomAccessFile volume, int firstClusterIndex) throws IOException {
+    public static void printRecordClusterChain(RandomAccessFile volume, int firstClusterIndex) throws IOException, DufsException {
         int clusterIndex = firstClusterIndex;
         System.out.print("Cluster chain: [ ");
         System.out.print(clusterIndex);
@@ -77,7 +77,7 @@ public class PrintUtility {
     }
 
     public static void dfsPrintRecords(RandomAccessFile volume, ReservedSpace reservedSpace,
-                                       int directoryIndex, int depth) throws IOException {
+                                       int directoryIndex, int depth) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, directoryIndex));
         int clusterIndex = directoryIndex;
@@ -105,7 +105,7 @@ public class PrintUtility {
         volume.seek(defaultFilePointer);
     }
 
-    public static void printRecords(RandomAccessFile volume, ReservedSpace reservedSpace) throws IOException {
+    public static void printRecords(RandomAccessFile volume, ReservedSpace reservedSpace) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
         for (int i = 0; i < reservedSpace.getReservedClusters(); ++i) {
             Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, i);

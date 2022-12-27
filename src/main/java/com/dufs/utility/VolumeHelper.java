@@ -1,5 +1,6 @@
 package com.dufs.utility;
 
+import com.dufs.exceptions.DufsException;
 import com.dufs.model.Record;
 import com.dufs.model.ReservedSpace;
 import com.dufs.offsets.ClusterIndexListOffsets;
@@ -64,7 +65,7 @@ public class VolumeHelper {
      * linear traverse through content in directory's cluster chain
      */
     public static boolean isNameUniqueInDirectory(RandomAccessFile volume, ReservedSpace reservedSpace,
-                                                  int directoryIndex, char[] name, byte isFile) throws IOException {
+                                                  int directoryIndex, char[] name, byte isFile) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, directoryIndex) + RecordOffsets.FIRST_CLUSTER_INDEX_OFFSET);
         int clusterIndex = volume.readInt();
