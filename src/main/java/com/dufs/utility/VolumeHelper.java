@@ -39,7 +39,7 @@ public class VolumeHelper {
     }
 
     public static boolean enoughSpace(ReservedSpace reservedSpace, long size) {
-        return (reservedSpace.getFreeClusters() - VolumeHelper.howMuchClustersNeeds(reservedSpace, size)) >= 0;
+        return (reservedSpace.getFreeClusters() - Math.max(1, VolumeHelper.howMuchClustersNeeds(reservedSpace, size))) >= 0;
     }
 
     public static boolean recordExists(RandomAccessFile volume, int firstClusterIndex) throws IOException {
