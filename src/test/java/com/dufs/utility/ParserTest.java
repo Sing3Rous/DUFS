@@ -16,6 +16,7 @@ class ParserTest {
                 + "folder2" + separator
                 + "file";
         String[] parsedPath = Parser.parsePath(path);
+        assertEquals(4, parsedPath.length);
         assertEquals("vol.dufs", parsedPath[0]);
         assertEquals("folder1", parsedPath[1]);
         assertEquals("folder2", parsedPath[2]);
