@@ -487,7 +487,7 @@ class DufsTest {
 
     @Test
     void deleteRecord_nullFile() {
-        assertEquals("File does not exist.",
+        assertEquals("Given path does not exist.",
                 assertThrows(DufsException.class,
                         () -> dufs.deleteRecord("vol.DUFS"
                                 + FileSystems.getDefault().getSeparator() + "record", Mockito.anyByte())).getMessage());
@@ -532,7 +532,7 @@ class DufsTest {
         dufs.createRecord("vol.DUFS", "record", (byte) 1);
         assertEquals("New name length has exceeded the limit.",
                 assertThrows(DufsException.class,
-                        () -> dufs.createRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record",
+                        () -> dufs.renameRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record",
                                 "123456789123456789123456789123456", (byte) 0)).getMessage());
     }
 
@@ -557,7 +557,7 @@ class DufsTest {
 
     @Test
     void renameRecord_nullRecord() {
-        assertEquals("Record does not exist.",
+        assertEquals("Given path does not exist.",
                 assertThrows(DufsException.class,
                         () -> dufs.createRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record",
                                 "somename", (byte) 0)).getMessage());
@@ -584,7 +584,7 @@ class DufsTest {
 
     @Test
     void moveRecord_nullRecord() {
-        assertEquals("Record does not exist.",
+        assertEquals("Given path does not exist.",
                 assertThrows(DufsException.class,
                         () -> dufs.createRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record",
                                 Mockito.anyString(), (byte) 0)).getMessage());
@@ -600,22 +600,77 @@ class DufsTest {
                 + FileSystems.getDefault().getSeparator() + "file", "vol.DUFS", (byte) 1);
         Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, 2);
         assertEquals(0, record.getParentDirectoryIndex());
-        assertEquals(1, record.getParentDirectoryIndexOrderNumber());
-
+        assertEquals(2, record.getParentDirectoryIndexOrderNumber());
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
         assertEquals(0, volume.readInt());
         assertEquals(0, volume.readInt());
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 0));
+        assertEquals(2, volume.readInt());
         assertEquals(1, volume.readInt());
         assertEquals(2, volume.readInt());
     }
 
     @Test
     void defragmentation_nullVolume() {
+        Dufs nullVolumeDufs = new Dufs();
+        assertEquals("Volume has not found.",
+                assertThrows(DufsException.class, nullVolumeDufs::defragmentation).getMessage());
     }
 
     @Test
-    void defragmentation() {
+    void defragmentation() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord("vol.DUFS", "record1", (byte) 1);
+        dufs.createRecord("vol.DUFS", "record2", (byte) 1);
+        dufs.createRecord("vol.DUFS", "record3", (byte) 1);
+        File tmpFile = new File("tmp");
+        RandomAccessFile tmpRAF = new RandomAccessFile(tmpFile, "rw");
+        tmpRAF.setLength(5000);
+        byte[] content2 = new byte[5000];
+        for (int i = 0; i < 5000; ++i) {
+            content2[i] = (byte) (((i * i) ^ 22) << 3);
+        }
+        tmpRAF.write(content2);
+        dufs.writeFile("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record2", tmpFile);
+        tmpRAF.setLength(8300);
+        byte[] content3 = new byte[8300];
+        for (int i = 0; i < 8300; ++i) {
+            content3[i] = (byte) ((i * i) ^ 505 - i);
+        }
+        tmpRAF.seek(0);
+        tmpRAF.write(content3);
+        byte[] content1 = new byte[8300];
+        dufs.writeFile("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record3", tmpFile);
+        for (int i = 0; i < 8300; ++i) {
+            content1[i] = (byte) ((i * i) ^ 712 - i);
+        }
+        tmpRAF.seek(0);
+        tmpRAF.write(content1);
+        dufs.writeFile("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record1", tmpFile);
+        dufs.defragmentation();
+
+        // check cluster chains
+        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
+        assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(2, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(3, volume.readInt());
+        assertEquals(1, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(2, volume.readInt());
+
+        assertEquals(5, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(4, volume.readInt());
+
+        assertEquals(7, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(8, volume.readInt());
+        assertEquals(6, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(7, volume.readInt());
     }
 
     @Test
