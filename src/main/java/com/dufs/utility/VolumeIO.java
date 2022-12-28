@@ -1,6 +1,7 @@
 package com.dufs.utility;
 
 import com.dufs.exceptions.DufsException;
+import com.dufs.filesystem.Dufs;
 import com.dufs.model.Record;
 import com.dufs.model.ReservedSpace;
 import com.dufs.offsets.RecordOffsets;
@@ -132,7 +133,7 @@ public class VolumeIO {
 
     public static void updateRecordName(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex, char[] name) throws IOException, DufsException {
         if (recordIndex == 0) {
-            throw new DufsException("Root's record cannot be modified");
+            throw new DufsException("Root's record cannot be modified.");
         }
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.NAME_OFFSET);
@@ -145,7 +146,7 @@ public class VolumeIO {
     public static void updateRecordParentDirectory(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex,
                                                    int parentDirectoryIndex, int parentDirectoryIndexOrderNumber) throws IOException, DufsException {
         if (recordIndex == 0) {
-            throw new DufsException("Root's record cannot be modified");
+            throw new DufsException("Root's record cannot be modified.");
         }
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.PARENT_DIRECTORY_INDEX_OFFSET);
@@ -156,14 +157,42 @@ public class VolumeIO {
 
     public static void updateRecordSize(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex, long size) throws IOException, DufsException {
         if (recordIndex == 0) {
-            throw new DufsException("Root's record cannot be modified");
+            throw new DufsException("Root's record cannot be modified.");
+        }
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.SIZE_OFFSET);
+        volume.writeLong(size);
+        volume.seek(defaultFilePointer);
+    }
+
+    public static void updateRecordLastEdit(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex) throws DufsException, IOException {
+        if (recordIndex == 0) {
+            throw new DufsException("Root's record cannot be modified.");
         }
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.LAST_EDIT_DATE_OFFSET);
         volume.writeShort(DateUtility.dateToShort(LocalDate.now()));
         volume.writeShort(DateUtility.timeToShort(LocalDateTime.now()));
-        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.SIZE_OFFSET);
-        volume.writeLong(size);
+        volume.seek(defaultFilePointer);
+    }
+
+    public static void cleanFileData(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex) throws IOException, DufsException {
+        long defaultFilePointer = volume.getFilePointer();
+        Record file = readRecordFromVolume(volume, reservedSpace, recordIndex);
+        if (file.getIsFile() == 0) {
+            throw new DufsException("Given record is not a file.");
+        }
+        int clusterIndex = file.getFirstClusterIndex();
+        while (clusterIndex != 0xFFFFFFFF) {
+            volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex));
+            byte[] emptyCluster = new byte[reservedSpace.getClusterSize()];
+            volume.write(emptyCluster);
+            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
+            clusterIndex = volume.readInt();
+            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
+            volume.writeInt(0);
+            volume.writeInt(0);
+        }
         volume.seek(defaultFilePointer);
     }
 }

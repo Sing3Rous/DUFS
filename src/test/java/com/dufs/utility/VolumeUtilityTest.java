@@ -146,10 +146,18 @@ class VolumeUtilityTest {
 
     @Test
     void findDirectoryIndex_incorrectPathEmpty() {
-        assertEquals("Given path is not correct",
+        assertEquals("Given path is not correct.",
                 assertThrows(DufsException.class,
                         () -> VolumeUtility.findDirectoryIndex(dufs.getVolume(), reservedSpace,
                                 "v0l.DUFS")).getMessage());
+    }
+
+    @Test
+    void findDirectoryIndex_wrongPath() {
+        assertEquals("Given path does not exist.",
+                assertThrows(DufsException.class,
+                        () -> VolumeUtility.findDirectoryIndex(dufs.getVolume(), reservedSpace,
+                                "vol.DUFS" + FileSystems.getDefault().getSeparator() + "folder")).getMessage());
     }
 
     @Test
@@ -191,6 +199,15 @@ class VolumeUtilityTest {
         int directoryIndexCluster2 = VolumeUtility.findDirectoryIndex(volume, reservedSpace, directoryPath + "record1100");
         assertEquals(1100, directoryIndexCluster2);
     }
+
+    @Test
+    void findFileIndex_wrongPath() {
+        assertEquals("Given path does not exist.",
+                assertThrows(DufsException.class,
+                        () -> VolumeUtility.findFileIndex(dufs.getVolume(), reservedSpace,
+                                "vol.DUFS" + FileSystems.getDefault().getSeparator() + "file")).getMessage());
+    }
+
 
     @Test
     void findFileIndex() throws IOException, DufsException {

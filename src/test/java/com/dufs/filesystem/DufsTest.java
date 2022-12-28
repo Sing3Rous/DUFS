@@ -2,7 +2,9 @@ package com.dufs.filesystem;
 
 import com.dufs.exceptions.DufsException;
 import com.dufs.model.Record;
+import com.dufs.model.RecordList;
 import com.dufs.model.ReservedSpace;
+import com.dufs.offsets.RecordListOffsets;
 import com.dufs.offsets.RecordOffsets;
 import com.dufs.offsets.ReservedSpaceOffsets;
 import com.dufs.utility.DateUtility;
@@ -467,54 +469,145 @@ class DufsTest {
 
     @Test
     void deleteRecord_nullVolume() {
+        Dufs nullVolumeDufs = new Dufs();
+        assertEquals("Volume has not found.",
+                assertThrows(DufsException.class,
+                        () -> nullVolumeDufs.deleteRecord("vol.DUFS", Mockito.anyByte())).getMessage());
     }
 
     @Test
-    void deleteRecord_directoryNotEmpty() {
+    void deleteRecord_directoryNotEmpty() throws IOException, DufsException {
+        dufs.createRecord("vol.DUFS", "folder", (byte) 0);
+        String pathToDirectory = "vol.DUFS" + FileSystems.getDefault().getSeparator() + "folder";
+        dufs.createRecord(pathToDirectory, "file", (byte) 1);
+        assertEquals("Directory is not empty",
+                assertThrows(DufsException.class,
+                        () -> dufs.deleteRecord(pathToDirectory, (byte) 0)).getMessage());
     }
 
     @Test
     void deleteRecord_nullFile() {
+        assertEquals("File does not exist.",
+                assertThrows(DufsException.class,
+                        () -> dufs.deleteRecord("vol.DUFS"
+                                + FileSystems.getDefault().getSeparator() + "record", Mockito.anyByte())).getMessage());
     }
 
     @Test
-    void deleteRecord() {
+    void deleteRecord() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord("vol.DUFS", "record", (byte) 1);
+        dufs.deleteRecord("vol.DUFS"
+                + FileSystems.getDefault().getSeparator() + "record", (byte) 1);
+        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
+        assertEquals(0, volume.readInt());
+        assertEquals(0, volume.readInt());
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, 1));
+        byte[] recordBytes = new byte[RecordListOffsets.RECORD_SIZE];
+        byte[] emptyRecordBytes = new byte[RecordListOffsets.RECORD_SIZE];
+        volume.read(recordBytes);
+        assertArrayEquals(emptyRecordBytes, recordBytes);
+        volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
+        byte[] clusterBytes = new byte[RecordListOffsets.RECORD_SIZE];
+        byte[] emptyClusterBytes = new byte[RecordListOffsets.RECORD_SIZE];
+        volume.read(clusterBytes);
+        assertArrayEquals(emptyClusterBytes, clusterBytes);
+        // check if record is deleted from parent directory's cluster
+        volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 0));
+        assertEquals(0, volume.readInt());
+        assertEquals(0, volume.readInt());
     }
 
     @Test
     void renameRecord_nullVolume() {
+        Dufs nullVolumeDufs = new Dufs();
+        assertEquals("Volume has not found.",
+                assertThrows(DufsException.class,
+                        () -> nullVolumeDufs.renameRecord("vol.DUFS", Mockito.anyString(),
+                                Mockito.anyByte())).getMessage());
     }
 
     @Test
-    void renameRecord_nameLength() {
+    void renameRecord_nameLength() throws IOException, DufsException {
+        dufs.createRecord("vol.DUFS", "record", (byte) 1);
+        assertEquals("New name length has exceeded the limit.",
+                assertThrows(DufsException.class,
+                        () -> dufs.createRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record",
+                                "123456789123456789123456789123456", (byte) 0)).getMessage());
     }
 
     @Test
-    void renameRecord_nameProhibitedSymbols() {
+    void renameRecord_nameProhibitedSymbols() throws IOException, DufsException {
+        dufs.createRecord("vol.DUFS", "record", (byte) 1);
+        assertEquals("New name contains prohibited symbols.",
+                assertThrows(DufsException.class,
+                        () -> dufs.renameRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record",
+                                "123*", (byte) 1)).getMessage());
     }
 
     @Test
-    void renameRecord_duplicate() {
+    void renameRecord_duplicate() throws IOException, DufsException {
+        dufs.createRecord("vol.DUFS", "record", (byte) 1);
+        dufs.createRecord("vol.DUFS", "doppelganger", (byte) 1);
+        assertEquals("Record with such name and type already contains in this path.",
+                assertThrows(DufsException.class,
+                        () -> dufs.renameRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record",
+                                "doppelganger", (byte) 1)).getMessage());
     }
 
     @Test
     void renameRecord_nullRecord() {
+        assertEquals("Record does not exist.",
+                assertThrows(DufsException.class,
+                        () -> dufs.createRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record",
+                                "somename", (byte) 0)).getMessage());
     }
 
     @Test
-    void renameRecord() {
+    void renameRecord() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord("vol.DUFS", "record", (byte) 1);
+        dufs.renameRecord("vol.DUFS" + FileSystems.getDefault().getSeparator()
+                + "record", "file", (byte) 1);
+        Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, 1);
+        assertEquals(new String(Arrays.copyOf("file".toCharArray(), 32)), new String(record.getName()));
     }
 
     @Test
     void moveRecord_nullVolume() {
+        Dufs nullVolumeDufs = new Dufs();
+        assertEquals("Volume has not found.",
+                assertThrows(DufsException.class,
+                        () -> nullVolumeDufs.moveRecord("vol.DUFS", Mockito.anyString(),
+                                Mockito.anyByte())).getMessage());
     }
 
     @Test
     void moveRecord_nullRecord() {
+        assertEquals("Record does not exist.",
+                assertThrows(DufsException.class,
+                        () -> dufs.createRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record",
+                                Mockito.anyString(), (byte) 0)).getMessage());
     }
 
     @Test
-    void moveRecord() {
+    void moveRecord() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord("vol.DUFS", "folder", (byte) 0);
+        dufs.createRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "folder",
+                "file", (byte) 1);
+        dufs.moveRecord("vol.DUFS" + FileSystems.getDefault().getSeparator() + "folder"
+                + FileSystems.getDefault().getSeparator() + "file", "vol.DUFS", (byte) 1);
+        Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, 2);
+        assertEquals(0, record.getParentDirectoryIndex());
+        assertEquals(1, record.getParentDirectoryIndexOrderNumber());
+
+        volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
+        assertEquals(0, volume.readInt());
+        assertEquals(0, volume.readInt());
+        volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 0));
+        assertEquals(1, volume.readInt());
+        assertEquals(2, volume.readInt());
     }
 
     @Test

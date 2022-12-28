@@ -169,7 +169,7 @@ class VolumeIOTest {
 
     @Test
     void updateRecordName_renameRoot() {
-        assertEquals("Root's record cannot be modified",
+        assertEquals("Root's record cannot be modified.",
                 assertThrows(DufsException.class,
                         () -> VolumeIO.updateRecordName(dufs.getVolume(), reservedSpace, 0,
                                 Mockito.anyString().toCharArray())).getMessage());
@@ -191,7 +191,7 @@ class VolumeIOTest {
 
     @Test
     void updateRecordParentDirectory_updateRoot() {
-        assertEquals("Root's record cannot be modified",
+        assertEquals("Root's record cannot be modified.",
                 assertThrows(DufsException.class,
                         () -> VolumeIO.updateRecordParentDirectory(dufs.getVolume(), reservedSpace, 0,
                                 Mockito.anyInt(), Mockito.anyInt())).getMessage());
@@ -210,7 +210,7 @@ class VolumeIOTest {
 
     @Test
     void updateRecordSize_updateRoot() {
-        assertEquals("Root's record cannot be modified",
+        assertEquals("Root's record cannot be modified.",
                 assertThrows(DufsException.class,
                         () -> VolumeIO.updateRecordSize(dufs.getVolume(), reservedSpace, 0,
                                 Mockito.anyInt())).getMessage());
@@ -223,5 +223,84 @@ class VolumeIOTest {
         VolumeIO.updateRecordSize(volume, reservedSpace, 1, 262145);
         volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, 1) + RecordOffsets.SIZE_OFFSET);
         assertEquals(262145, volume.readLong());
+    }
+
+    @Test
+    void updateRecordLastEdit_updateRoot() {
+        assertEquals("Root's record cannot be modified.",
+                assertThrows(DufsException.class,
+                        () -> VolumeIO.updateRecordLastEdit(dufs.getVolume(), reservedSpace, 0)).getMessage());
+    }
+
+    @Test
+    void updateRecordLastEdit() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord(new String(reservedSpace.getVolumeName()), "record", (byte) 1);
+        VolumeIO.updateRecordLastEdit(volume, reservedSpace, 1);
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, 1) + RecordOffsets.LAST_EDIT_DATE_OFFSET);
+        assertEquals(DateUtility.dateToShort(LocalDate.now()), volume.readShort());
+        assertEquals(DateUtility.timeToShort(LocalDateTime.now()), volume.readShort());
+    }
+
+    @Test
+    void cleanFileData_wrongIndex() throws IOException, DufsException {
+        dufs.createRecord("vol.DUFS", "folder", (byte) 0);
+        assertEquals("Given record is not a file.",
+                assertThrows(DufsException.class,
+                        () -> VolumeIO.cleanFileData(dufs.getVolume(), reservedSpace, 1)).getMessage());
+    }
+
+    @Test
+    void cleanFileData() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord("vol.DUFS", "file", (byte) 1);
+        byte[] content = new byte[1024];
+        for (int i = 0; i < 1024; ++i) {
+            content[i] = (byte) ((i + 4) ^ 42 << 2);
+        }
+        volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
+        volume.write(content);
+        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
+        volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(0xFFFFFFFF);
+        VolumeIO.cleanFileData(volume, reservedSpace, 1);
+        volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
+        byte[] clusterRead = new byte[reservedSpace.getClusterSize()];
+        byte[] emptyCluster = new byte[reservedSpace.getClusterSize()];
+        volume.read(clusterRead);
+        assertEquals(emptyCluster, clusterRead);
+        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
+        assertEquals(0, volume.readInt());
+        assertEquals(0, volume.readInt());
+    }
+
+    @Test
+    void cleanFileData_moreThanOneCluster() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord("vol.DUFS", "file", (byte) 1);
+        byte[] content = new byte[8000];
+        for (int i = 0; i < 8000; ++i) {
+            content[i] = (byte) ((i + 4) ^ 42 << 2);
+        }
+        volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
+        volume.write(content);
+        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
+        volume.writeInt(2);
+        volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(1);
+        VolumeIO.cleanFileData(volume, reservedSpace, 1);
+        volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
+        byte[] clusterRead = new byte[reservedSpace.getClusterSize()];
+        byte[] emptyCluster = new byte[reservedSpace.getClusterSize()];
+        volume.read(clusterRead);
+        assertEquals(emptyCluster, clusterRead);
+        volume.read(clusterRead);
+        assertEquals(emptyCluster, clusterRead);
+        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
+        assertEquals(0, volume.readInt());
+        assertEquals(0, volume.readInt());
+        assertEquals(0, volume.readInt());
+        assertEquals(0, volume.readInt());
     }
 }

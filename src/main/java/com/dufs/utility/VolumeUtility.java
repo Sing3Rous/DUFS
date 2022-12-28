@@ -91,7 +91,7 @@ public class VolumeUtility {
         // check if root name is the first directory in the given path
         if (records.length == 0 || !Arrays.equals(Arrays.copyOf(records[0].toCharArray(), 8),
                                                     Arrays.copyOf((reservedSpace.getVolumeName()), 8))) {
-            throw new DufsException("Given path is not correct");
+            throw new DufsException("Given path is not correct.");
         }
         // check if root name is <= 8 symbols
         if (records[0].length() > 8) {

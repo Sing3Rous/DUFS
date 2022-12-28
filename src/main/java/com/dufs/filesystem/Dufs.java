@@ -107,6 +107,7 @@ public class Dufs {
     }
 
     /*
+     * deletes current content in Dufs::file, then
      * writes data from `java.io.File` into the clusters in DUFS
      * currently it supports only writing data from the external file
      */
@@ -119,6 +120,7 @@ public class Dufs {
         }
         int dufsFileIndex = VolumeUtility.findFileIndex(volume, reservedSpace, path);
         Record dufsFile = VolumeIO.readRecordFromVolume(volume, reservedSpace, dufsFileIndex);
+        VolumeIO.cleanFileData(volume, reservedSpace, dufsFileIndex);
         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
         byte[] buffer = new byte[reservedSpace.getClusterSize()];
         int clusterIndex = dufsFile.getFirstClusterIndex();
@@ -131,6 +133,7 @@ public class Dufs {
             }
         }
         VolumeIO.updateRecordSize(volume, reservedSpace, dufsFileIndex, file.length() + dufsFile.getSize());
+        VolumeIO.updateRecordLastEdit(volume, reservedSpace, dufsFileIndex);
         bis.close();
     }
 
@@ -172,6 +175,7 @@ public class Dufs {
             }
         }
         VolumeIO.updateRecordSize(volume, reservedSpace, dufsFileIndex, file.length() + dufsFile.getSize());
+        VolumeIO.updateRecordLastEdit(volume, reservedSpace, dufsFileIndex);
         bis.close();
     }
 
@@ -253,6 +257,7 @@ public class Dufs {
             throw new DufsException("Record does not exist.");
         }
         VolumeIO.updateRecordName(volume, reservedSpace, dufsRecordIndex, Arrays.copyOf(newName.toCharArray(), 32));
+        VolumeIO.updateRecordLastEdit(volume, reservedSpace, dufsRecordIndex);
     }
 
     public void moveRecord(String path, String newPath, byte isFile) throws IOException, DufsException {
@@ -276,6 +281,7 @@ public class Dufs {
         VolumeUtility.removeRecordIndexFromDirectoryCluster(volume, reservedSpace,
                 dufsRecord.getParentDirectoryIndex(), dufsRecord.getParentDirectoryIndexOrderNumber());
         VolumeIO.updateRecordParentDirectory(volume, reservedSpace, dufsRecordIndex, newDirectoryIndex, newDirectoryIndexOrderNumber);
+        VolumeIO.updateRecordLastEdit(volume, reservedSpace, dufsRecordIndex);
     }
     
     public void printDirectoryContent(String path) throws IOException, DufsException {
