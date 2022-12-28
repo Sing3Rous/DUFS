@@ -143,6 +143,17 @@ public class VolumeIO {
         volume.seek(defaultFilePointer);
     }
 
+    public static void updateRecordFirstClusterIndex(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex,
+                                                     int firstClusterIndex) throws DufsException, IOException {
+        if (recordIndex == 0) {
+            throw new DufsException("Root's record cannot be modified.");
+        }
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.FIRST_CLUSTER_INDEX_OFFSET);
+        volume.writeInt(firstClusterIndex);
+        volume.seek(defaultFilePointer);
+    }
+
     public static void updateRecordParentDirectory(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex,
                                                    int parentDirectoryIndex, int parentDirectoryIndexOrderNumber) throws IOException, DufsException {
         if (recordIndex == 0) {
@@ -188,8 +199,9 @@ public class VolumeIO {
             byte[] emptyCluster = new byte[reservedSpace.getClusterSize()];
             volume.write(emptyCluster);
             volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
+            int prevClusterIndex = clusterIndex;
             clusterIndex = volume.readInt();
-            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
+            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(prevClusterIndex));
             volume.writeInt(0);
             volume.writeInt(0);
         }
