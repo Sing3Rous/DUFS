@@ -120,17 +120,25 @@ public class Dufs {
         }
         int dufsFileIndex = VolumeUtility.findFileIndex(volume, reservedSpace, path);
         Record dufsFile = VolumeIO.readRecordFromVolume(volume, reservedSpace, dufsFileIndex);
+        if (!VolumeHelper.recordExists(volume, dufsFile.getFirstClusterIndex()) && (dufsFile.getIsFile() == 1)) {
+            throw new DufsException("File does not exist.");
+        }
         VolumeIO.cleanFileData(volume, reservedSpace, dufsFileIndex);
         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
         byte[] buffer = new byte[reservedSpace.getClusterSize()];
         int clusterIndex = dufsFile.getFirstClusterIndex();
+        int prevClusterIndex = 0xFFFFFFFF;
         int bytes;
         while ((bytes = bis.read(buffer)) != -1) {
             VolumeUtility.allocateInCluster(volume, reservedSpace, clusterIndex, buffer, 0);
             if (bytes == reservedSpace.getClusterSize()) {
-                clusterIndex = VolumeUtility.updateClusterIndexChain(volume, reservedSpace, clusterIndex);
+                int tmpClusterIndex = clusterIndex;
+                clusterIndex = VolumeUtility.updateClusterIndexChain(volume, reservedSpace, clusterIndex, prevClusterIndex);
+                prevClusterIndex = tmpClusterIndex;
                 VolumeIO.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
+                VolumeIO.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
             }
+            Arrays.fill(buffer, (byte) 0);
         }
         VolumeIO.updateRecordSize(volume, reservedSpace, dufsFileIndex, file.length() + dufsFile.getSize());
         VolumeIO.updateRecordLastEdit(volume, reservedSpace, dufsFileIndex);
@@ -149,6 +157,9 @@ public class Dufs {
         }
         int dufsFileIndex = VolumeUtility.findFileIndex(volume, reservedSpace, path);
         Record dufsFile = VolumeIO.readRecordFromVolume(volume, reservedSpace, dufsFileIndex);
+        if (!VolumeHelper.recordExists(volume, dufsFile.getFirstClusterIndex()) && (dufsFile.getIsFile() == 1)) {
+            throw new DufsException("File does not exist.");
+        }
         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
         int bytesLeftInCluster = reservedSpace.getClusterSize() - (int) (dufsFile.getSize() % reservedSpace.getClusterSize());
         int firstClusterIndex = dufsFile.getFirstClusterIndex();
@@ -156,23 +167,32 @@ public class Dufs {
         int lastClusterIndex = VolumeUtility.findLastClusterIndexInChain(volume, firstClusterIndex);
         byte[] lastClusterBuffer = new byte [bytesLeftInCluster];
         int clusterIndex = lastClusterIndex;
+        int preLastClusterIndex = VolumeUtility.findPrevClusterIndexInChain(volume, lastClusterIndex);
         int bytes;
         // initially allocate content in the end of the last cluster
         if ((bytes = bis.read(lastClusterBuffer)) != -1) {
             VolumeUtility.allocateInCluster(volume, reservedSpace, lastClusterIndex, lastClusterBuffer,
                     reservedSpace.getClusterSize() - bytesLeftInCluster);
             if (bytes == bytesLeftInCluster) {
-                clusterIndex = VolumeUtility.updateClusterIndexChain(volume, reservedSpace, clusterIndex);
+                int tmpClusterIndex = clusterIndex;
+                clusterIndex = VolumeUtility.updateClusterIndexChain(volume, reservedSpace, clusterIndex, preLastClusterIndex);
+                preLastClusterIndex = tmpClusterIndex;
                 VolumeIO.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
+                VolumeIO.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
             }
+            Arrays.fill(buffer, (byte) 0);
         }
         // then allocate content in new clusters
         while ((bytes = bis.read(buffer)) != -1) {
             VolumeUtility.allocateInCluster(volume, reservedSpace, clusterIndex, buffer, 0);
             if (bytes == reservedSpace.getClusterSize()) {
-                clusterIndex = VolumeUtility.updateClusterIndexChain(volume, reservedSpace, clusterIndex);
+                int tmpClusterIndex = clusterIndex;
+                clusterIndex = VolumeUtility.updateClusterIndexChain(volume, reservedSpace, clusterIndex, preLastClusterIndex);
+                preLastClusterIndex = tmpClusterIndex;
                 VolumeIO.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
+                VolumeIO.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
             }
+            Arrays.fill(buffer, (byte) 0);
         }
         VolumeIO.updateRecordSize(volume, reservedSpace, dufsFileIndex, file.length() + dufsFile.getSize());
         VolumeIO.updateRecordLastEdit(volume, reservedSpace, dufsFileIndex);
@@ -185,6 +205,9 @@ public class Dufs {
         }
         int dufsFileIndex = VolumeUtility.findFileIndex(volume, reservedSpace, path);
         Record dufsFile = VolumeIO.readRecordFromVolume(volume, reservedSpace, dufsFileIndex);
+        if (!VolumeHelper.recordExists(volume, dufsFile.getFirstClusterIndex()) && (dufsFile.getIsFile() == 1)) {
+            throw new DufsException("File does not exist.");
+        }
         BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file));
         byte[] buffer = new byte[reservedSpace.getClusterSize()];
         // read bytes from every cluster in the chain but the last
@@ -217,7 +240,7 @@ public class Dufs {
         }
         Record dufsRecord = VolumeIO.readRecordFromVolume(volume, reservedSpace, dufsRecordIndex);
         if (!VolumeHelper.recordExists(volume, dufsRecord.getFirstClusterIndex()) && (dufsRecord.getIsFile() == isFile)) {
-            throw new DufsException("File does not exist.");
+            throw new DufsException("Record does not exist.");
         }
         VolumeUtility.deleteRecord(volume, reservedSpace, dufsRecord, dufsRecordIndex);
         int freeClusters;
@@ -331,9 +354,16 @@ public class Dufs {
         System.out.println();
     }
     
-    public void defragmentation() throws DufsException {
+    public void defragmentation() throws DufsException, IOException {
         if (volume == null) {
             throw new DufsException("Volume has not found.");
+        }
+        int reallocationStartCluster = 0;
+        for (int recordIndex = 0; recordIndex < reservedSpace.getReservedClusters(); ++recordIndex) {
+            if (VolumeHelper.recordExists(volume, reservedSpace, recordIndex)) {
+                reallocationStartCluster = VolumeUtility.reallocateRecordContentSequentially(volume,
+                        reservedSpace, recordIndex, reallocationStartCluster);
+            }
         }
     }
 
