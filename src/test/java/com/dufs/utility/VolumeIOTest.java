@@ -190,6 +190,23 @@ class VolumeIOTest {
     }
 
     @Test
+    void updateRecordFirstClusterIndex_updateRoot() {
+        assertEquals("Root's record cannot be modified.",
+                assertThrows(DufsException.class,
+                        () -> VolumeIO.updateRecordFirstClusterIndex(dufs.getVolume(), reservedSpace, 0,
+                                Mockito.anyInt())).getMessage());
+    }
+
+    @Test
+    void updateRecordFirstClusterIndex() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord(new String(reservedSpace.getVolumeName()), "file1", (byte) 1);
+        VolumeIO.updateRecordFirstClusterIndex(volume, reservedSpace, 1, 6);
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, 1) + RecordOffsets.FIRST_CLUSTER_INDEX_OFFSET);
+        assertEquals(6, volume.readInt());
+    }
+
+    @Test
     void updateRecordParentDirectory_updateRoot() {
         assertEquals("Root's record cannot be modified.",
                 assertThrows(DufsException.class,
@@ -268,7 +285,7 @@ class VolumeIOTest {
         byte[] clusterRead = new byte[reservedSpace.getClusterSize()];
         byte[] emptyCluster = new byte[reservedSpace.getClusterSize()];
         volume.read(clusterRead);
-        assertEquals(emptyCluster, clusterRead);
+        assertArrayEquals(emptyCluster, clusterRead);
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(0, volume.readInt());
         assertEquals(0, volume.readInt());
@@ -294,9 +311,9 @@ class VolumeIOTest {
         byte[] clusterRead = new byte[reservedSpace.getClusterSize()];
         byte[] emptyCluster = new byte[reservedSpace.getClusterSize()];
         volume.read(clusterRead);
-        assertEquals(emptyCluster, clusterRead);
+        assertArrayEquals(emptyCluster, clusterRead);
         volume.read(clusterRead);
-        assertEquals(emptyCluster, clusterRead);
+        assertArrayEquals(emptyCluster, clusterRead);
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(0, volume.readInt());
         assertEquals(0, volume.readInt());
