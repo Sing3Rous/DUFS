@@ -1,6 +1,7 @@
 package com.dufs.utility;
 
 import com.dufs.exceptions.DufsException;
+import com.dufs.filesystem.Dufs;
 import com.dufs.model.Record;
 import com.dufs.model.ReservedSpace;
 import com.dufs.offsets.ClusterIndexListOffsets;
@@ -26,11 +27,12 @@ public class VolumeUtility {
         volume.seek(defaultFilePointer);
     }
 
-    public static int updateClusterIndexChain(RandomAccessFile volume, ReservedSpace reservedSpace, int clusterIndex) throws IOException {
+    public static int updateClusterIndexChain(RandomAccessFile volume, ReservedSpace reservedSpace, int clusterIndex, int prevClusterIndex) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
         int nextClusterIndex = reservedSpace.getNextClusterIndex();
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
         volume.writeInt(nextClusterIndex);
+        volume.writeInt(prevClusterIndex);
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(nextClusterIndex));
         volume.writeInt(0xFFFFFFFF);    // write ClusterIndexElement.nextClusterIndex as end of chain
         volume.writeInt(clusterIndex);     // write ClusterIndexElement.prevClusterIndex as index of previous cluster in chain
@@ -231,13 +233,25 @@ public class VolumeUtility {
             throw new DufsException("Given cluster chain is broken.");
         }
         volume.seek(defaultFilePointer);
-        return (nextCluster != 0xFFFFFFFF) ? nextCluster : -1;
+        return nextCluster;
     }
+
+    public static int findPrevClusterIndexInChain(RandomAccessFile volume, int clusterIndex) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex) + 4);
+        int prevClusterIndex = volume.readInt();
+        volume.seek(defaultFilePointer);
+        return prevClusterIndex;
+    }
+
 
     public static int findLastClusterIndexInChain(RandomAccessFile volume, int clusterIndex) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
         int prevIndex;
         int index = clusterIndex;
+        if (index == 0xFFFFFFFF) {
+            throw new DufsException("Given cluster index is wrong.");
+        }
         do {
             volume.seek(VolumePointerUtility.calculateClusterIndexPosition(index));
             prevIndex = index;
@@ -248,6 +262,35 @@ public class VolumeUtility {
         } while (index != 0xFFFFFFFF);
         volume.seek(defaultFilePointer);
         return prevIndex;
+    }
+
+    public static int findFirstClusterIndexInChain(RandomAccessFile volume, int clusterIndex) throws IOException, DufsException {
+        long defaultFilePointer = volume.getFilePointer();
+        int prevIndex;
+        int index = clusterIndex;
+        if (index == 0xFFFFFFFF) {
+            throw new DufsException("Given cluster index is wrong.");
+        }
+        do {
+            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(index) + 4);
+            prevIndex = index;
+            index = volume.readInt();
+        } while (index != 0xFFFFFFFF);
+        volume.seek(defaultFilePointer);
+        return prevIndex;
+    }
+
+    /*
+     * very slow and bad operation. must be reworked as additional element in Cluster Index Element
+     */
+    public static int findRecordIndexByFirstClusterIndex(RandomAccessFile volume, ReservedSpace reservedSpace, int clusterIndex) throws IOException, DufsException {
+        for (int i = 0; i < reservedSpace.getReservedClusters(); ++i) {
+            Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, i);
+            if (record.getFirstClusterIndex() == clusterIndex) {
+                return i;
+            }
+        }
+        throw new DufsException("There is no record with such first cluster index.");
     }
 
     public static int addRecordIndexInDirectoryCluster(RandomAccessFile volume, ReservedSpace reservedSpace,
@@ -320,6 +363,23 @@ public class VolumeUtility {
         volume.seek(defaultFilePointer);
     }
 
+    // unsafe
+    public static int reallocateRecordContentSequentially(RandomAccessFile volume, ReservedSpace reservedSpace,
+                                                           int recordIndex, int startClusterIndex) throws IOException, DufsException {
+        long defaultFilePointer = volume.getFilePointer();
+        Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex);
+        int clusterIndex = record.getFirstClusterIndex();
+        int clusterCounter = startClusterIndex;
+        do {
+            smartSwapClusters(volume, reservedSpace, clusterIndex, clusterCounter);
+            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterCounter));
+            clusterIndex = volume.readInt();
+            clusterCounter++;
+        } while (clusterIndex != 0xFFFFFFFF);
+        volume.seek(defaultFilePointer);
+        return clusterCounter;
+    }
+
     // unsafe: doesn't check anything
     public static void swapIndexesInDirectoryCluster(RandomAccessFile volume, long pos1, long pos2) throws  IOException {
         long defaultFilePointer = volume.getFilePointer();
@@ -335,8 +395,11 @@ public class VolumeUtility {
     }
 
     // unsafe: doesn't check anything
-    public static void swapClusters(RandomAccessFile volume, ReservedSpace reservedSpace, int clusterIndex1, int clusterIndex2) throws IOException {
+    public static void swapClustersContent(RandomAccessFile volume, ReservedSpace reservedSpace, int clusterIndex1, int clusterIndex2) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
+        if (clusterIndex1 == clusterIndex2) {
+            return;
+        }
         // swap clusters
         long clusterPos1 = VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex1);
         long clusterPos2 = VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex2);
@@ -350,6 +413,72 @@ public class VolumeUtility {
         volume.write(cluster1);
         volume.seek(clusterPos1);
         volume.write(cluster2);
+        volume.seek(defaultFilePointer);
+    }
+
+    public static void smartSwapClusters(RandomAccessFile volume, ReservedSpace reservedSpace, int clusterIndex1, int clusterIndex2) throws IOException, DufsException {
+        long defaultFilePointer = volume.getFilePointer();
+        if (clusterIndex1 == clusterIndex2) {
+            return;
+        }
+        long clusterIndexPos1 = VolumePointerUtility.calculateClusterIndexPosition(clusterIndex1);
+        long clusterIndexPos2 = VolumePointerUtility.calculateClusterIndexPosition(clusterIndex2);
+        // update cluster chain for both cluster index elements
+        volume.seek(clusterIndexPos1);
+        int clusterIndexNext1 = volume.readInt();
+        int clusterIndexPrev1 = volume.readInt();
+        volume.seek(clusterIndexPos2);
+        int clusterIndexNext2 = volume.readInt();
+        int clusterIndexPrev2 = volume.readInt();
+        if (clusterIndexPrev1 == 0xFFFFFFFF) {
+            VolumeIO.updateRecordFirstClusterIndex(volume, reservedSpace,
+                    findRecordIndexByFirstClusterIndex(volume, reservedSpace, clusterIndex1), clusterIndex2);
+        }
+        if (clusterIndexPrev2 == 0xFFFFFFFF) {
+            VolumeIO.updateRecordFirstClusterIndex(volume, reservedSpace,
+                    findRecordIndexByFirstClusterIndex(volume, reservedSpace, clusterIndex2), clusterIndex1);
+        }
+        if (clusterIndexNext1 == clusterIndex2) {
+            volume.seek(clusterIndexPos1);
+            volume.writeInt(0xFFFFFFFF);
+            volume.writeInt(clusterIndex2);
+            volume.seek(clusterIndexPos2);
+            volume.writeInt(clusterIndex1);
+            volume.writeInt(0xFFFFFFFF);
+        } else if (clusterIndexNext2 == clusterIndex2) {
+            volume.seek(clusterIndexPos1);
+            volume.writeInt(clusterIndex1);
+            volume.writeInt(0xFFFFFFFF);
+            volume.seek(clusterIndexPos2);
+            volume.writeInt(0xFFFFFFFF);
+            volume.writeInt(clusterIndex2);
+        } else {
+            if (clusterIndexNext1 != 0xFFFFFFFF) {
+                volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndexNext1) + 4);
+                volume.writeInt(clusterIndex2);
+            }
+            if (clusterIndexPrev1 != 0xFFFFFFFF) {
+                volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndexPrev1));
+                volume.writeInt(clusterIndex2);
+            }
+            if (clusterIndexNext2 != 0xFFFFFFFF) {
+                volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndexNext2) + 4);
+                volume.writeInt(clusterIndex1);
+            }
+            if (clusterIndexPrev2 != 0xFFFFFFFF) {
+                volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndexPrev2));
+                volume.writeInt(clusterIndex1);
+            }
+            volume.seek(clusterIndexPos1);
+            volume.writeInt(clusterIndexNext2);
+            volume.writeInt(clusterIndexPrev2);
+            volume.seek(clusterIndexPos2);
+            volume.writeInt(clusterIndexNext1);
+            volume.writeInt(clusterIndexPrev1);
+        }
+
+        // update clusters content
+        swapClustersContent(volume, reservedSpace, clusterIndex1, clusterIndex2);
         volume.seek(defaultFilePointer);
     }
 }
