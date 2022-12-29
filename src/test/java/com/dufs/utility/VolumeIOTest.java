@@ -236,6 +236,23 @@ class VolumeIOTest {
     }
 
     @Test
+    void updateRecordParentDirectoryOrderNumber_updateRoot() {
+        assertEquals("Root's record cannot be modified.",
+                assertThrows(DufsException.class,
+                        () -> VolumeIO.updateRecordParentDirectoryOrderNumber(dufs.getVolume(), reservedSpace, 0,
+                                Mockito.anyInt())).getMessage());
+    }
+
+    @Test
+    void updateRecordParentDirectoryOrderNumber() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord(new String(reservedSpace.getVolumeName()), "file1", (byte) 1);
+        VolumeIO.updateRecordParentDirectoryOrderNumber(volume, reservedSpace, 1, 131071);
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, 1) + RecordOffsets.PARENT_DIRECTORY_INDEX_ORDER_NUMBER_OFFSET);
+        assertEquals(131071, volume.readInt());
+    }
+
+    @Test
     void updateRecordSize_updateRoot() {
         assertEquals("Root's record cannot be modified.",
                 assertThrows(DufsException.class,

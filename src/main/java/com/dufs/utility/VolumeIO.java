@@ -175,6 +175,17 @@ public class VolumeIO {
         volume.seek(defaultFilePointer);
     }
 
+    public static void updateRecordParentDirectoryOrderNumber(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex,
+                                                              int parentDirectoryIndexOrderNumber) throws  IOException, DufsException {
+        if (recordIndex == 0) {
+            throw new DufsException("Root's record cannot be modified.");
+        }
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.PARENT_DIRECTORY_INDEX_ORDER_NUMBER_OFFSET);
+        volume.writeInt(parentDirectoryIndexOrderNumber);
+        volume.seek(defaultFilePointer);
+    }
+
     public static void updateRecordSize(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex, long size) throws IOException, DufsException {
         if (recordIndex == 0) {
             throw new DufsException("Root's record cannot be modified.");

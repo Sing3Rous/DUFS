@@ -60,7 +60,7 @@ public class Dufs {
     }
 
     public void attachVolume(String path) throws DufsException, IOException {
-        File file = new File(path);;
+        File file = new File(path);
         if (!file.exists() || file.isDirectory()) {
             throw new DufsException("There is no volume with such name in this directory.");
         }

@@ -57,10 +57,12 @@ public class PrintUtility {
         int[] createTime = DateUtility.shortToTime(record.getCreateTime());
         System.out.print("created " + createDate[2] + "." + createDate[1] + "." + createDate[0]
                 + " at " + createTime[0] + ":" + createTime[1] + ":" + createTime[2] + ", ");
-        int[] lastEditDate = DateUtility.shortToDate(record.getLastEditDate());
-        int[] lastEditTime = DateUtility.shortToTime(record.getLastEditTime());
-        System.out.print("last edited " + lastEditDate[2] + "." + lastEditDate[1] + "." + lastEditDate[0]
-                + " at " + lastEditTime[0] + ":" + lastEditTime[1] + ":" + lastEditTime[2]);
+//        int[] lastEditDate = DateUtility.shortToDate(record.getLastEditDate());
+//        int[] lastEditTime = DateUtility.shortToTime(record.getLastEditTime());
+//        System.out.print("last edited " + lastEditDate[2] + "." + lastEditDate[1] + "." + lastEditDate[0]
+//                + " at " + lastEditTime[0] + ":" + lastEditTime[1] + ":" + lastEditTime[2]);
+        System.out.print("parent directory index: " + record.getParentDirectoryIndex()
+                + ", order number: " + record.getParentDirectoryIndexOrderNumber());
         System.out.println();
     }
 
@@ -93,7 +95,11 @@ public class PrintUtility {
                 for (int i = 0; i < depth; ++i) {
                     System.out.print("|\t");
                 }
-                System.out.println("|" + name);
+                if (record.getIsFile() == 0) {
+                    System.out.println("|" + name + "\\");
+                } else {
+                    System.out.println("|" + name);
+                }
                 if (record.getIsFile() == 0) {
                     dfsPrintRecords(volume, reservedSpace, record.getFirstClusterIndex(), depth + 1);
                 }

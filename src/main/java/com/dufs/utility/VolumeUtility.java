@@ -49,8 +49,6 @@ public class VolumeUtility {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex) + pos);
         volume.write(content);
-//        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
-//        volume.writeInt(0xFFFFFFFF);
         if (content.length + pos == reservedSpace.getClusterSize()) {   // if cluster is filled
             reservedSpace.setNextClusterIndex(findNextFreeClusterIndex(volume, reservedSpace));
         }
@@ -64,9 +62,6 @@ public class VolumeUtility {
         }
         long defaultFilePointer = volume.getFilePointer();
         int firstClusterIndex = record.getFirstClusterIndex();
-        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex));
-        // delete record from record list
-        volume.write(new byte[RecordListOffsets.RECORD_SIZE]);      // set next RECORD_SIZE (93) bytes to 0
         int clusterIndex = firstClusterIndex;
         int prevClusterIndex = clusterIndex;
         // delete record from cluster index list and data in clusters
@@ -82,6 +77,9 @@ public class VolumeUtility {
         // delete record index from parent directory cluster
         removeRecordIndexFromDirectoryCluster(volume, reservedSpace,
                 record.getParentDirectoryIndex(), record.getParentDirectoryIndexOrderNumber());
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex));
+        // delete record from record list
+        volume.write(new byte[RecordListOffsets.RECORD_SIZE]);      // set next RECORD_SIZE (93) bytes to 0
         volume.seek(defaultFilePointer);
     }
 
@@ -307,8 +305,17 @@ public class VolumeUtility {
         int numberOfRecordsInDirectory = volume.readInt();
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, parentDirectoryClusterIndex));
         volume.writeInt(numberOfRecordsInDirectory + 1);
-        int indexInsertionOffset = (int) (((numberOfRecordsInDirectory + 1) * 4L) % reservedSpace.getClusterSize());
+        int indexInsertionOffset;
+        if (numberOfRecordsInDirectory <= ((reservedSpace.getClusterSize() / 4) - 1)) {
+            indexInsertionOffset = (int) (((numberOfRecordsInDirectory + 1) * 4L) % reservedSpace.getClusterSize());
+        } else {
+            indexInsertionOffset = (int) ((numberOfRecordsInDirectory * 4L) % reservedSpace.getClusterSize());
+        }
         int lastClusterIndex = findLastClusterIndexInChain(volume, parentDirectoryClusterIndex);
+        int preLastClusterIndex = findPrevClusterIndexInChain(volume, lastClusterIndex);
+        if (indexInsertionOffset == 0) {
+            lastClusterIndex = updateClusterIndexChain(volume, reservedSpace, lastClusterIndex, preLastClusterIndex);
+        }
         allocateInCluster(volume, reservedSpace, lastClusterIndex,
                 ByteBuffer.allocate(4).putInt(recordIndex).array(), indexInsertionOffset);
         volume.seek(defaultFilePointer);
@@ -351,9 +358,11 @@ public class VolumeUtility {
         int lastRecordPositionOffset = (int) ((numberOfRecordsInDirectory * 4L) % reservedSpace.getClusterSize());
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, lastClusterIndex) + lastRecordPositionOffset);
         long lastRecordPosition = volume.getFilePointer();
-        volume.seek(neededClusterIndexPosition);
+        if (neededClusterIndexPosition != lastRecordPosition) {
+            smartSwapIndexesInDirectoryCluster(volume, reservedSpace, neededClusterIndexPosition, lastRecordPosition);
+        }
+        volume.seek(lastRecordPosition);
         volume.writeInt(0);
-        swapIndexesInDirectoryCluster(volume, neededClusterIndexPosition, lastRecordPosition);
         // if last cluster becomes empty
         if (numberOfRecordsInDirectory % (reservedSpace.getClusterSize() / 4) == 0) {
             volume.seek(VolumePointerUtility.calculateClusterIndexPosition(lastClusterIndex));
@@ -393,6 +402,20 @@ public class VolumeUtility {
         volume.writeInt(recordIndex1);
         volume.seek(pos1);
         volume.writeInt(recordIndex2);
+        volume.seek(defaultFilePointer);
+    }
+
+    public static void smartSwapIndexesInDirectoryCluster(RandomAccessFile volume, ReservedSpace reservedSpace, long pos1, long pos2) throws IOException, DufsException {
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(pos1);
+        int recordIndex1 = volume.readInt();
+        volume.seek(pos2);
+        int recordIndex2 = volume.readInt();
+        Record record1 = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex1);
+        Record record2 = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex2);
+        VolumeIO.updateRecordParentDirectoryOrderNumber(volume, reservedSpace, recordIndex1, record2.getParentDirectoryIndexOrderNumber());
+        VolumeIO.updateRecordParentDirectoryOrderNumber(volume, reservedSpace, recordIndex2, record1.getParentDirectoryIndexOrderNumber());
+        swapIndexesInDirectoryCluster(volume, pos1, pos2);
         volume.seek(defaultFilePointer);
     }
 
