@@ -341,11 +341,6 @@ class VolumeUtilityTest {
     }
 
     @Test
-    void findPrevClusterIndexInChain_brokenChain() {
-
-    }
-
-    @Test
     void findPrevClusterIndexInChain() throws IOException {
         RandomAccessFile volume = dufs.getVolume();
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
@@ -380,13 +375,6 @@ class VolumeUtilityTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         int lastClusterIndex = VolumeUtility.findLastClusterIndexInChain(volume, 0);
         assertEquals(115, lastClusterIndex);
-    }
-
-    @Test
-    void findFirstClusterIndexInChain_brokenChain(){
-        assertEquals("Given cluster chain is broken.",
-                assertThrows(DufsException.class,
-                        () -> VolumeUtility.findFirstClusterIndexInChain(dufs.getVolume(), 1)).getMessage());
     }
 
     @Test

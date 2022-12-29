@@ -42,5 +42,7 @@ public class Main {
         dufs.printDirectoryTree();
         dufs.printVolumeRecords();
         dufs.printVolumeInfo();
+        dufs.defragmentation();
+        dufs.printVolumeRecords();
     }
 }

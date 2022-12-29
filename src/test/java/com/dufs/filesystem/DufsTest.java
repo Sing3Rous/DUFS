@@ -671,6 +671,8 @@ class DufsTest {
         assertEquals(6, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(7, volume.readInt());
+        tmpRAF.close();
+        tmpFile.delete();
     }
 
     @Test

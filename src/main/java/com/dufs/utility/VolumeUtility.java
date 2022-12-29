@@ -430,6 +430,9 @@ public class VolumeUtility {
         volume.seek(clusterIndexPos2);
         int clusterIndexNext2 = volume.readInt();
         int clusterIndexPrev2 = volume.readInt();
+        if (clusterIndexNext1 == 0 || clusterIndexPrev1 == 0 || clusterIndexNext2 == 0 || clusterIndexPrev2 == 0) {
+            int a = 8;
+        }
         if (clusterIndexPrev1 == 0xFFFFFFFF) {
             VolumeIO.updateRecordFirstClusterIndex(volume, reservedSpace,
                     findRecordIndexByFirstClusterIndex(volume, reservedSpace, clusterIndex1), clusterIndex2);
@@ -437,6 +440,18 @@ public class VolumeUtility {
         if (clusterIndexPrev2 == 0xFFFFFFFF) {
             VolumeIO.updateRecordFirstClusterIndex(volume, reservedSpace,
                     findRecordIndexByFirstClusterIndex(volume, reservedSpace, clusterIndex2), clusterIndex1);
+        }
+        // if one cluster is free and second is the only cluster in chain
+        if ((clusterIndexNext1 == 0 && clusterIndexPrev1 == 0 && clusterIndexNext2 == 0xFFFFFFFF && clusterIndexPrev2 == 0xFFFFFFFF)
+                || (clusterIndexNext1 == 0xFFFFFFFF && clusterIndexPrev1 == 0xFFFFFFFF && clusterIndexNext2 == 0 && clusterIndexPrev2 == 0)) {
+            swapClustersContent(volume, reservedSpace, clusterIndex1, clusterIndex2);
+            volume.seek(clusterIndexPos1);
+            volume.writeInt(clusterIndexNext2);
+            volume.writeInt(clusterIndexPrev2);
+            volume.seek(clusterIndexPos2);
+            volume.writeInt(clusterIndexNext1);
+            volume.writeInt(clusterIndexPrev1);
+            return;
         }
         if (clusterIndexNext1 == clusterIndex2) {
             volume.seek(clusterIndexPos1);
@@ -453,19 +468,19 @@ public class VolumeUtility {
             volume.writeInt(0xFFFFFFFF);
             volume.writeInt(clusterIndex2);
         } else {
-            if (clusterIndexNext1 != 0xFFFFFFFF) {
+            if (clusterIndexNext1 != 0xFFFFFFFF && clusterIndexNext1 != 0) {
                 volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndexNext1) + 4);
                 volume.writeInt(clusterIndex2);
             }
-            if (clusterIndexPrev1 != 0xFFFFFFFF) {
+            if (clusterIndexPrev1 != 0xFFFFFFFF && (clusterIndexPrev1 != 0 && clusterIndexNext1 != 0)) {
                 volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndexPrev1));
                 volume.writeInt(clusterIndex2);
             }
-            if (clusterIndexNext2 != 0xFFFFFFFF) {
+            if (clusterIndexNext2 != 0xFFFFFFFF && clusterIndexNext2 != 0) {
                 volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndexNext2) + 4);
                 volume.writeInt(clusterIndex1);
             }
-            if (clusterIndexPrev2 != 0xFFFFFFFF) {
+            if (clusterIndexPrev2 != 0xFFFFFFFF && (clusterIndexPrev2 != 0 && clusterIndexNext2 != 0)) {
                 volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndexPrev2));
                 volume.writeInt(clusterIndex1);
             }
