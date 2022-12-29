@@ -49,6 +49,8 @@ public class VolumeUtility {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex) + pos);
         volume.write(content);
+//        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
+//        volume.writeInt(0xFFFFFFFF);
         if (content.length + pos == reservedSpace.getClusterSize()) {   // if cluster is filled
             reservedSpace.setNextClusterIndex(findNextFreeClusterIndex(volume, reservedSpace));
         }
@@ -375,7 +377,7 @@ public class VolumeUtility {
             volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterCounter));
             clusterIndex = volume.readInt();
             clusterCounter++;
-        } while (clusterIndex != 0xFFFFFFFF);
+        } while (clusterIndex != 0xFFFFFFFF && clusterIndex != 0);
         volume.seek(defaultFilePointer);
         return clusterCounter;
     }

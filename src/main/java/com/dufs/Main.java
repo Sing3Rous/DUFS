@@ -36,6 +36,7 @@ public class Main {
         dufs.printDirectoryTree();
         dufs.createRecord("vol.DUFS\\papka", "masterskaya", DIR);
         dufs.createRecord("vol.DUFS\\papka\\masterskaya", "kabanchik", FILE);
+        dufs.createRecord("vol.DUFS", "30y", (byte) 1);
         for (int i = 0; i < 10; ++i) {
             dufs.appendFile("vol.DUFS\\papka\\masterskaya\\kabanchik", new File("abc.txt"));
         }
@@ -43,6 +44,12 @@ public class Main {
         dufs.printVolumeRecords();
         dufs.printVolumeInfo();
         dufs.defragmentation();
+        dufs.printVolumeRecords();
+        dufs.readFile("vol.DUFS\\papka\\masterskaya\\kabanchik", new File("qwebaked.txt"));
+        dufs.bake();
+        dufs.unbake();
+        dufs.readFile("vol.DUFS\\papka\\masterskaya\\kabanchik", new File("qweunbaked.txt"));
+        dufs.printDirectoryTree();
         dufs.printVolumeRecords();
     }
 }

@@ -676,15 +676,160 @@ class DufsTest {
     }
 
     @Test
-    void bake() {
+    void bake_nullVolume() {
+        Dufs nullVolumeDufs = new Dufs();
+        assertEquals("Volume has not found.",
+                assertThrows(DufsException.class, nullVolumeDufs::bake).getMessage());
     }
 
     @Test
-    void unbake() {
+    void bake() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord("vol.DUFS", "record", (byte) 1);
+        File tmpFile = new File("tmp");
+        RandomAccessFile tmpRAF = new RandomAccessFile(tmpFile, "rw");
+        tmpRAF.setLength(1024);
+        byte[] content = new byte[1024];
+        for (int i = 0; i < 1024; ++i) {
+            content[i] = (byte) (((i * i) ^ 22) << 3);
+        }
+        tmpRAF.write(content);
+        dufs.writeFile("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record", tmpFile);
+        dufs.bake();
+        assertEquals(1018252, volume.length());
+        volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
+        byte[] readContent = new byte[1024];
+        volume.read(readContent);
+        assertArrayEquals(content, readContent);
+        tmpRAF.close();
+        tmpFile.delete();
     }
 
     @Test
-    void dufsCompleteTest() {
+    void unbake_nullVolume() {
+        Dufs nullVolumeDufs = new Dufs();
+        assertEquals("Volume has not found.",
+                assertThrows(DufsException.class, nullVolumeDufs::unbake).getMessage());
+    }
 
+    @Test
+    void unbake() throws IOException, DufsException {
+        RandomAccessFile volume = dufs.getVolume();
+        dufs.createRecord("vol.DUFS", "record", (byte) 1);
+        File tmpFile = new File("tmp");
+        RandomAccessFile tmpRAF = new RandomAccessFile(tmpFile, "rw");
+        tmpRAF.setLength(1024);
+        byte[] content = new byte[1024];
+        for (int i = 0; i < 1024; ++i) {
+            content[i] = (byte) (((i * i) ^ 22) << 3);
+        }
+        tmpRAF.write(content);
+        dufs.writeFile("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record", tmpFile);
+        dufs.bake();
+        dufs.unbake();
+        assertEquals(41970060, volume.length());
+        tmpRAF.close();
+        tmpFile.delete();
+    }
+
+    @Test
+    void dufsCompleteTest() throws IOException, DufsException {
+        String separator = FileSystems.getDefault().getSeparator();
+        final byte FILE = 1;
+        final byte DIR = 0;
+        dufs.createRecord("vol.DUFS", "src", DIR);
+        dufs.createRecord("vol.DUFS" + separator + "src", "main", DIR);
+        dufs.createRecord("vol.DUFS" + separator + "src" + separator + "main", "java", DIR);
+        dufs.createRecord("vol.DUFS" + separator + "src" + separator + "main" + separator
+                + "java", "com", DIR);
+        dufs.createRecord("vol.DUFS" + separator + "src" + separator + "main" + separator
+                + "java" + separator + "com", "dufs", DIR);
+        String comdufsPath = "vol.DUFS" + separator + "src" + separator + "main" + separator
+                + "java" + separator + "com" + separator + "dufs";
+        String comdufsPathReal = "src" + separator + "main" + separator + "java" + separator + "com" + separator + "dufs";
+        dufs.createRecord(comdufsPath, "exceptions", DIR);
+        dufs.createRecord(comdufsPath, "filesystem", DIR);
+        dufs.createRecord(comdufsPath, "model", DIR);
+        dufs.createRecord(comdufsPath, "offsets", DIR);
+        dufs.createRecord(comdufsPath, "utility", DIR);
+        dufs.createRecord(comdufsPath, "Main.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "Main.java", new File(comdufsPathReal + separator + "Main.java"));
+        String exceptionsPath = comdufsPath + separator + "exceptions";
+        dufs.createRecord(exceptionsPath, "DufsException.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "exceptions" + separator + "DufsException.java",
+                new File(comdufsPathReal + separator + "exceptions" + separator + "DufsException.java"));
+        String filesystemPath = "vol.DUFS" + separator + "src" + separator + "main" + separator
+                + "java" + separator + "com" + separator + "dufs" + separator + "filesystem";
+        dufs.createRecord(filesystemPath, "Dufs.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "filesystem" + separator + "Dufs.java",
+                new File(comdufsPathReal + separator + "filesystem" + separator + "Dufs.java"));
+        String modelPath = comdufsPath + separator + "model";
+        dufs.createRecord(modelPath, "ClusterIndexElement.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "model" + separator + "ClusterIndexElement.java",
+                new File(comdufsPathReal + separator + "model" + separator + "ClusterIndexElement.java"));
+        dufs.createRecord(modelPath, "ClusterIndexList.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "model" + separator + "ClusterIndexList.java",
+                new File(comdufsPathReal + separator + "model" + separator + "ClusterIndexList.java"));
+        dufs.createRecord(modelPath, "Record.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "model" + separator + "Record.java",
+                new File(comdufsPathReal + separator + "model" + separator + "Record.java"));
+        dufs.createRecord(modelPath, "RecordList.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "model" + separator + "RecordList.java",
+                new File(comdufsPathReal + separator + "model" + separator + "RecordList.java"));
+        dufs.createRecord(modelPath, "ReservedSpace.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "model" + separator + "ReservedSpace.java",
+                new File(comdufsPathReal + separator + "model" + separator + "ReservedSpace.java"));
+        String offsetsPath = comdufsPath + separator + "offsets";
+        dufs.createRecord(offsetsPath, "ClusterIndexListOffsets.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "offsets" + separator + "ClusterIndexListOffsets.java",
+                new File(comdufsPathReal + separator + "offsets" + separator + "ClusterIndexListOffsets.java"));
+        dufs.createRecord(offsetsPath, "RecordListOffsets.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "offsets" + separator + "RecordListOffsets.java",
+                new File(comdufsPathReal + separator + "offsets" + separator + "RecordListOffsets.java"));
+        dufs.createRecord(offsetsPath, "RecordOffsets.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "offsets" + separator + "RecordOffsets.java",
+                new File(comdufsPathReal + separator + "offsets" + separator + "RecordOffsets.java"));
+        dufs.createRecord(offsetsPath, "ReservedSpaceOffsets.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "offsets" + separator + "ReservedSpaceOffsets.java",
+                new File(comdufsPathReal + separator + "offsets" + separator + "ReservedSpaceOffsets.java"));
+        String utilityPath = comdufsPath + separator + "utility";
+        dufs.createRecord(utilityPath, "DateUtility.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "utility" + separator + "DateUtility.java",
+                new File(comdufsPathReal + separator + "utility" + separator + "DateUtility.java"));
+        dufs.createRecord(utilityPath, "Parser.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "utility" + separator + "Parser.java",
+                new File(comdufsPathReal + separator + "utility" + separator + "Parser.java"));
+        dufs.createRecord(utilityPath, "PrintUtility.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "utility" + separator + "PrintUtility.java",
+                new File(comdufsPathReal + separator + "utility" + separator + "PrintUtility.java"));
+        dufs.createRecord(utilityPath, "VolumeHelper.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "utility" + separator + "VolumeHelper.java",
+                new File(comdufsPathReal + separator + "utility" + separator + "VolumeHelper.java"));
+        dufs.createRecord(utilityPath, "VolumeIO.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "utility" + separator + "VolumeIO.java",
+                new File(comdufsPathReal + separator + "utility" + separator + "VolumeIO.java"));
+        dufs.createRecord(utilityPath, "VolumePointerUtility.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "utility" + separator + "VolumePointerUtility.java",
+                new File(comdufsPathReal + separator + "utility" + separator + "VolumePointerUtility.java"));
+        dufs.createRecord(utilityPath, "VolumeUtility.java", FILE);
+        dufs.writeFile(comdufsPath + separator + "utility" + separator + "VolumeUtility.java",
+                new File(comdufsPathReal + separator + "utility" + separator + "VolumeUtility.java"));
+        dufs.printVolumeRecords();
+        dufs.deleteRecord(comdufsPath + separator + "Main.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "exceptions" + separator + "DufsException.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "filesystem" + separator + "Dufs.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "model" + separator + "Record.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "model" + separator + "ClusterIndexList.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "model" + separator + "ReservedSpace.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "offsets" + separator + "ClusterIndexListOffsets.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "offsets" + separator + "RecordListOffsets.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "offsets" + separator + "ReservedSpaceOffsets.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "utility" + separator + "VolumeIO.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "utility" + separator + "VolumePointerUtility.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "utility" + separator + "Parser.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "utility" + separator + "PrintUtility.java", FILE);
+        dufs.deleteRecord(comdufsPath + separator + "utility" + separator + "VolumeHelper.java", FILE);
+        dufs.printVolumeRecords();
+        dufs.printDirectoryTree();
     }
 }

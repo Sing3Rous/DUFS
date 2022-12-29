@@ -17,6 +17,7 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -168,6 +169,15 @@ class VolumeIOTest {
     }
 
     @Test
+    void updateVolumeLastDefragmentation() throws IOException {
+        RandomAccessFile volume = dufs.getVolume();
+        VolumeIO.updateVolumeLastDefragmentation(volume);
+        volume.seek(ReservedSpaceOffsets.LAST_DEFRAGMENTATION_DATE_OFFSET);
+        assertEquals(DateUtility.dateToShort(LocalDate.now()), volume.readShort());
+        assertEquals(DateUtility.timeToShort(LocalDateTime.now()), volume.readShort());
+    }
+
+    @Test
     void updateRecordName_renameRoot() {
         assertEquals("Root's record cannot be modified.",
                 assertThrows(DufsException.class,
@@ -287,8 +297,8 @@ class VolumeIOTest {
         volume.read(clusterRead);
         assertArrayEquals(emptyCluster, clusterRead);
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
-        assertEquals(0, volume.readInt());
-        assertEquals(0, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
     }
 
     @Test
@@ -315,8 +325,8 @@ class VolumeIOTest {
         volume.read(clusterRead);
         assertArrayEquals(emptyCluster, clusterRead);
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
-        assertEquals(0, volume.readInt());
-        assertEquals(0, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(0, volume.readInt());
         assertEquals(0, volume.readInt());
     }

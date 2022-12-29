@@ -12,6 +12,7 @@ import java.io.RandomAccessFile;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Date;
 
 public class VolumeIO {
     public static void initializeRootCluster(RandomAccessFile volume) throws IOException {
@@ -131,6 +132,14 @@ public class VolumeIO {
         volume.seek(defaultFilePointer);
     }
 
+    public static void updateVolumeLastDefragmentation(RandomAccessFile volume) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(ReservedSpaceOffsets.LAST_DEFRAGMENTATION_DATE_OFFSET);
+        volume.writeShort(DateUtility.dateToShort(LocalDate.now()));
+        volume.writeShort(DateUtility.timeToShort(LocalDateTime.now()));
+        volume.seek(defaultFilePointer);
+    }
+
     public static void updateRecordName(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex, char[] name) throws IOException, DufsException {
         if (recordIndex == 0) {
             throw new DufsException("Root's record cannot be modified.");
@@ -205,6 +214,9 @@ public class VolumeIO {
             volume.writeInt(0);
             volume.writeInt(0);
         }
+        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(file.getFirstClusterIndex()));
+        volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(0xFFFFFFFF);
         volume.seek(defaultFilePointer);
     }
 }

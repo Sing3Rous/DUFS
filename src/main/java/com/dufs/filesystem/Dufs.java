@@ -5,6 +5,9 @@ import com.dufs.model.ClusterIndexList;
 import com.dufs.model.Record;
 import com.dufs.model.RecordList;
 import com.dufs.model.ReservedSpace;
+import com.dufs.offsets.ClusterIndexListOffsets;
+import com.dufs.offsets.RecordListOffsets;
+import com.dufs.offsets.ReservedSpaceOffsets;
 import com.dufs.utility.*;
 
 import java.io.*;
@@ -104,6 +107,7 @@ public class Dufs {
         VolumeIO.updateVolumeNextRecordIndex(volume, reservedSpace.getNextRecordIndex());
         VolumeUtility.createClusterIndexChain(volume, reservedSpace, firstClusterIndex);
         VolumeIO.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
+        reservedSpace.setFreeClusters(reservedSpace.getFreeClusters() - 1);
     }
 
     /*
@@ -130,13 +134,19 @@ public class Dufs {
         int prevClusterIndex = 0xFFFFFFFF;
         int bytes;
         while ((bytes = bis.read(buffer)) != -1) {
-            VolumeUtility.allocateInCluster(volume, reservedSpace, clusterIndex, buffer, 0);
+            if (bytes != reservedSpace.getClusterSize()) {
+                byte[] slicedBuffer = Arrays.copyOfRange(buffer, 0, bytes);
+                VolumeUtility.allocateInCluster(volume, reservedSpace, clusterIndex, slicedBuffer, 0);
+            } else {
+                VolumeUtility.allocateInCluster(volume, reservedSpace, clusterIndex, buffer, 0);
+            }
             if (bytes == reservedSpace.getClusterSize()) {
                 int tmpClusterIndex = clusterIndex;
                 clusterIndex = VolumeUtility.updateClusterIndexChain(volume, reservedSpace, clusterIndex, prevClusterIndex);
                 prevClusterIndex = tmpClusterIndex;
                 VolumeIO.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
                 VolumeIO.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
+                reservedSpace.setFreeClusters(reservedSpace.getFreeClusters() - 1);
             }
             Arrays.fill(buffer, (byte) 0);
         }
@@ -171,26 +181,38 @@ public class Dufs {
         int bytes;
         // initially allocate content in the end of the last cluster
         if ((bytes = bis.read(lastClusterBuffer)) != -1) {
-            VolumeUtility.allocateInCluster(volume, reservedSpace, lastClusterIndex, lastClusterBuffer,
-                    reservedSpace.getClusterSize() - bytesLeftInCluster);
+            if (bytes != reservedSpace.getClusterSize()) {
+                byte[] slicedBuffer = Arrays.copyOfRange(lastClusterBuffer, 0, bytes);
+                VolumeUtility.allocateInCluster(volume, reservedSpace, clusterIndex, slicedBuffer, 0);
+            } else {
+                VolumeUtility.allocateInCluster(volume, reservedSpace, lastClusterIndex, lastClusterBuffer,
+                        reservedSpace.getClusterSize() - bytesLeftInCluster);
+            }
             if (bytes == bytesLeftInCluster) {
                 int tmpClusterIndex = clusterIndex;
                 clusterIndex = VolumeUtility.updateClusterIndexChain(volume, reservedSpace, clusterIndex, preLastClusterIndex);
                 preLastClusterIndex = tmpClusterIndex;
                 VolumeIO.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
                 VolumeIO.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
+                reservedSpace.setFreeClusters(reservedSpace.getFreeClusters() - 1);
             }
             Arrays.fill(buffer, (byte) 0);
         }
         // then allocate content in new clusters
         while ((bytes = bis.read(buffer)) != -1) {
-            VolumeUtility.allocateInCluster(volume, reservedSpace, clusterIndex, buffer, 0);
+            if (bytes != reservedSpace.getClusterSize()) {
+                byte[] slicedBuffer = Arrays.copyOfRange(buffer, 0, bytes);
+                VolumeUtility.allocateInCluster(volume, reservedSpace, clusterIndex, slicedBuffer, 0);
+            } else {
+                VolumeUtility.allocateInCluster(volume, reservedSpace, clusterIndex, buffer, 0);
+            }
             if (bytes == reservedSpace.getClusterSize()) {
                 int tmpClusterIndex = clusterIndex;
                 clusterIndex = VolumeUtility.updateClusterIndexChain(volume, reservedSpace, clusterIndex, preLastClusterIndex);
                 preLastClusterIndex = tmpClusterIndex;
                 VolumeIO.updateVolumeNextClusterIndex(volume, reservedSpace.getNextClusterIndex());
                 VolumeIO.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
+                reservedSpace.setFreeClusters(reservedSpace.getFreeClusters() - 1);
             }
             Arrays.fill(buffer, (byte) 0);
         }
@@ -365,17 +387,29 @@ public class Dufs {
                         reservedSpace, recordIndex, reallocationStartCluster);
             }
         }
+        VolumeIO.updateVolumeLastDefragmentation(volume);
     }
 
-    public void bake() throws DufsException {
+    public void bake() throws DufsException, IOException {
         if (volume == null) {
             throw new DufsException("Volume has not found.");
         }
+        defragmentation();
+        long bakedVolumeSize = ReservedSpaceOffsets.RESERVED_SPACE_SIZE
+                + (long) ClusterIndexListOffsets.CLUSTER_INDEX_ELEMENT_SIZE * reservedSpace.getReservedClusters()
+                + (long) RecordListOffsets.RECORD_SIZE * reservedSpace.getReservedClusters()
+                + (long) reservedSpace.getClusterSize() * (reservedSpace.getReservedClusters() - reservedSpace.getFreeClusters());
+        volume.setLength(bakedVolumeSize);
     }
 
-    public void unbake() throws DufsException {
+    public void unbake() throws DufsException, IOException {
         if (volume == null) {
             throw new DufsException("Volume has not found.");
         }
+        long unbakedVolumeSize = ReservedSpaceOffsets.RESERVED_SPACE_SIZE
+                + (long) ClusterIndexListOffsets.CLUSTER_INDEX_ELEMENT_SIZE * reservedSpace.getReservedClusters()
+                + (long) RecordListOffsets.RECORD_SIZE * reservedSpace.getReservedClusters()
+                + (long) reservedSpace.getClusterSize() * reservedSpace.getReservedClusters();
+        volume.setLength(unbakedVolumeSize);
     }
 }
