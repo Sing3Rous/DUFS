@@ -34,7 +34,7 @@ public class PrintUtility {
             recordIndex = volume.readInt();
             int counter = 0;
             while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {
-                Record record = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, recordIndex);
+                Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex);
                 printRecord(record);
                 recordIndex = volume.readInt();
                 counter++;
@@ -57,14 +57,16 @@ public class PrintUtility {
         int[] createTime = DateUtility.shortToTime(record.getCreateTime());
         System.out.print("created " + createDate[2] + "." + createDate[1] + "." + createDate[0]
                 + " at " + createTime[0] + ":" + createTime[1] + ":" + createTime[2] + ", ");
-        int[] lastEditDate = DateUtility.shortToDate(record.getLastEditDate());
-        int[] lastEditTime = DateUtility.shortToTime(record.getLastEditTime());
-        System.out.print("last edited " + lastEditDate[2] + "." + lastEditDate[1] + "." + lastEditDate[0]
-                + " at " + lastEditTime[0] + ":" + lastEditTime[1] + ":" + lastEditTime[2]);
+//        int[] lastEditDate = DateUtility.shortToDate(record.getLastEditDate());
+//        int[] lastEditTime = DateUtility.shortToTime(record.getLastEditTime());
+//        System.out.print("last edited " + lastEditDate[2] + "." + lastEditDate[1] + "." + lastEditDate[0]
+//                + " at " + lastEditTime[0] + ":" + lastEditTime[1] + ":" + lastEditTime[2]);
+        System.out.print("parent directory index: " + record.getParentDirectoryIndex()
+                + ", order number: " + record.getParentDirectoryIndexOrderNumber());
         System.out.println();
     }
 
-    public static void printRecordClusterChain(RandomAccessFile volume, int firstClusterIndex) throws IOException {
+    public static void printRecordClusterChain(RandomAccessFile volume, int firstClusterIndex) throws IOException, DufsException {
         int clusterIndex = firstClusterIndex;
         System.out.print("Cluster chain: [ ");
         System.out.print(clusterIndex);
@@ -77,7 +79,7 @@ public class PrintUtility {
     }
 
     public static void dfsPrintRecords(RandomAccessFile volume, ReservedSpace reservedSpace,
-                                       int directoryIndex, int depth) throws IOException {
+                                       int directoryIndex, int depth) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, directoryIndex));
         int clusterIndex = directoryIndex;
@@ -88,12 +90,16 @@ public class PrintUtility {
             recordIndex = volume.readInt();
             int counter = 0;
             while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {
-                Record record = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, recordIndex);
+                Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex);
                 String name = new String(record.getName()).replace("\u0000", "");
                 for (int i = 0; i < depth; ++i) {
                     System.out.print("|\t");
                 }
-                System.out.println("|" + name);
+                if (record.getIsFile() == 0) {
+                    System.out.println("|" + name + "\\");
+                } else {
+                    System.out.println("|" + name);
+                }
                 if (record.getIsFile() == 0) {
                     dfsPrintRecords(volume, reservedSpace, record.getFirstClusterIndex(), depth + 1);
                 }
@@ -105,11 +111,11 @@ public class PrintUtility {
         volume.seek(defaultFilePointer);
     }
 
-    public static void printRecords(RandomAccessFile volume, ReservedSpace reservedSpace) throws IOException {
+    public static void printRecords(RandomAccessFile volume, ReservedSpace reservedSpace) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
-        for (int i = 1; i < reservedSpace.getReservedClusters(); ++i) {
-            Record record = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, i);
-            if (VolumeHelperUtility.recordExists(volume, reservedSpace, i)) {
+        for (int i = 0; i < reservedSpace.getReservedClusters(); ++i) {
+            Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, i);
+            if (VolumeHelper.recordExists(volume, reservedSpace, i)) {
                 System.out.print("#" + i + ", ");
                 if (record.getIsFile() == 1) {
                     System.out.print("(FILE)");

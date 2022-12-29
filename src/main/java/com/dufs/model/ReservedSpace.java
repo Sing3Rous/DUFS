@@ -1,8 +1,7 @@
 package com.dufs.model;
 
 import com.dufs.utility.DateUtility;
-import com.dufs.utility.VolumeHelperUtility;
-import com.dufs.utility.VolumeUtility;
+import com.dufs.utility.VolumeHelper;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
@@ -98,8 +97,8 @@ public class ReservedSpace {
     public ReservedSpace(char[] volumeName, int clusterSize, long volumeSize) {
         this.volumeName = volumeName;
         this.clusterSize = clusterSize;
-        this.volumeSize = VolumeHelperUtility.calculateVolumeSize(clusterSize, volumeSize);
-        this.reservedClusters = VolumeHelperUtility.clustersAmount(clusterSize, volumeSize);
+        this.volumeSize = VolumeHelper.calculateVolumeSize(clusterSize, volumeSize);
+        this.reservedClusters = VolumeHelper.clustersAmount(clusterSize, volumeSize);
         this.createDate = DateUtility.dateToShort(LocalDate.now());
         this.createTime = DateUtility.timeToShort(LocalDateTime.now());
         this.lastDefragmentationDate = this.createDate;

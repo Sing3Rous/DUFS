@@ -1,5 +1,7 @@
 package com.dufs.utility;
 
+import com.dufs.exceptions.DufsException;
+import com.dufs.filesystem.Dufs;
 import com.dufs.model.Record;
 import com.dufs.model.ReservedSpace;
 import com.dufs.offsets.RecordOffsets;
@@ -9,13 +11,32 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Date;
 
-public class VolumeIOUtility {
+public class VolumeIO {
     public static void initializeRootCluster(RandomAccessFile volume) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
-        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0)); // set file pointer to root's first cluster
-        volume.writeInt(0xFFFFFFFF);                // mark root's first cluster as last cluster in chain
-        volume.writeInt(0xFFFFFFFF);                // mark root's first cluster as first cluster in chain
+        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
+        volume.writeInt(0xFFFFFFFF);    // mark root's first cluster as last cluster in chain
+        volume.writeInt(0xFFFFFFFF);    // mark root's first cluster as first cluster in chain
+        volume.seek(defaultFilePointer);
+    }
+
+    public static void initializeRootRecord(RandomAccessFile volume, ReservedSpace reservedSpace) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, 0));
+        String rootName = new String(Arrays.copyOf(reservedSpace.getVolumeName(), 32));
+        volume.writeChars(rootName);
+        volume.writeShort(reservedSpace.getCreateDate());
+        volume.writeShort(reservedSpace.getCreateTime());
+        volume.writeInt(0);
+        volume.writeShort(reservedSpace.getCreateDate());
+        volume.writeShort(reservedSpace.getCreateTime());
+        volume.writeLong(0);
+        volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(0xFFFFFFFF);
+        volume.writeByte(0);
         volume.seek(defaultFilePointer);
     }
 
@@ -35,7 +56,7 @@ public class VolumeIOUtility {
         short lastDefragmentationDate = volume.readShort();
         short lastDefragmentationTime = volume.readShort();
         int nextClusterIndex = volume.readInt();
-        int freeClusters= volume.readInt();
+        int freeClusters = volume.readInt();
         int nextRecordIndex = volume.readInt();
         int tailSignature = volume.readInt();
         volume.seek(defaultFilePointer);
@@ -111,7 +132,18 @@ public class VolumeIOUtility {
         volume.seek(defaultFilePointer);
     }
 
-    public static void updateRecordName(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex, char[] name) throws IOException {
+    public static void updateVolumeLastDefragmentation(RandomAccessFile volume) throws IOException {
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(ReservedSpaceOffsets.LAST_DEFRAGMENTATION_DATE_OFFSET);
+        volume.writeShort(DateUtility.dateToShort(LocalDate.now()));
+        volume.writeShort(DateUtility.timeToShort(LocalDateTime.now()));
+        volume.seek(defaultFilePointer);
+    }
+
+    public static void updateRecordName(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex, char[] name) throws IOException, DufsException {
+        if (recordIndex == 0) {
+            throw new DufsException("Root's record cannot be modified.");
+        }
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.NAME_OFFSET);
         for (int i = 0; i < 32; ++i) {
@@ -120,8 +152,22 @@ public class VolumeIOUtility {
         volume.seek(defaultFilePointer);
     }
 
+    public static void updateRecordFirstClusterIndex(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex,
+                                                     int firstClusterIndex) throws DufsException, IOException {
+        if (recordIndex == 0) {
+            throw new DufsException("Root's record cannot be modified.");
+        }
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.FIRST_CLUSTER_INDEX_OFFSET);
+        volume.writeInt(firstClusterIndex);
+        volume.seek(defaultFilePointer);
+    }
+
     public static void updateRecordParentDirectory(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex,
-                                                   int parentDirectoryIndex, int parentDirectoryIndexOrderNumber) throws IOException {
+                                                   int parentDirectoryIndex, int parentDirectoryIndexOrderNumber) throws IOException, DufsException {
+        if (recordIndex == 0) {
+            throw new DufsException("Root's record cannot be modified.");
+        }
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.PARENT_DIRECTORY_INDEX_OFFSET);
         volume.writeInt(parentDirectoryIndex);
@@ -129,13 +175,59 @@ public class VolumeIOUtility {
         volume.seek(defaultFilePointer);
     }
 
-    public static void updateRecordSize(RandomAccessFile volume, ReservedSpace reservedSpace, int index, long size) throws IOException {
+    public static void updateRecordParentDirectoryOrderNumber(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex,
+                                                              int parentDirectoryIndexOrderNumber) throws  IOException, DufsException {
+        if (recordIndex == 0) {
+            throw new DufsException("Root's record cannot be modified.");
+        }
         long defaultFilePointer = volume.getFilePointer();
-        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, index) + RecordOffsets.LAST_EDIT_DATE_OFFSET);
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.PARENT_DIRECTORY_INDEX_ORDER_NUMBER_OFFSET);
+        volume.writeInt(parentDirectoryIndexOrderNumber);
+        volume.seek(defaultFilePointer);
+    }
+
+    public static void updateRecordSize(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex, long size) throws IOException, DufsException {
+        if (recordIndex == 0) {
+            throw new DufsException("Root's record cannot be modified.");
+        }
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.SIZE_OFFSET);
+        volume.writeLong(size);
+        volume.seek(defaultFilePointer);
+    }
+
+    public static void updateRecordLastEdit(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex) throws DufsException, IOException {
+        if (recordIndex == 0) {
+            throw new DufsException("Root's record cannot be modified.");
+        }
+        long defaultFilePointer = volume.getFilePointer();
+        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex) + RecordOffsets.LAST_EDIT_DATE_OFFSET);
         volume.writeShort(DateUtility.dateToShort(LocalDate.now()));
         volume.writeShort(DateUtility.timeToShort(LocalDateTime.now()));
-        volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, index) + RecordOffsets.SIZE_OFFSET);
-        volume.writeLong(size);
+        volume.seek(defaultFilePointer);
+    }
+
+    public static void cleanFileData(RandomAccessFile volume, ReservedSpace reservedSpace, int recordIndex) throws IOException, DufsException {
+        long defaultFilePointer = volume.getFilePointer();
+        Record file = readRecordFromVolume(volume, reservedSpace, recordIndex);
+        if (file.getIsFile() == 0) {
+            throw new DufsException("Given record is not a file.");
+        }
+        int clusterIndex = file.getFirstClusterIndex();
+        while (clusterIndex != 0xFFFFFFFF) {
+            volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex));
+            byte[] emptyCluster = new byte[reservedSpace.getClusterSize()];
+            volume.write(emptyCluster);
+            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(clusterIndex));
+            int prevClusterIndex = clusterIndex;
+            clusterIndex = volume.readInt();
+            volume.seek(VolumePointerUtility.calculateClusterIndexPosition(prevClusterIndex));
+            volume.writeInt(0);
+            volume.writeInt(0);
+        }
+        volume.seek(VolumePointerUtility.calculateClusterIndexPosition(file.getFirstClusterIndex()));
+        volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(0xFFFFFFFF);
         volume.seek(defaultFilePointer);
     }
 }

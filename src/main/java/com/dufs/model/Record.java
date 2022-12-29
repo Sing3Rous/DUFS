@@ -1,5 +1,6 @@
 package com.dufs.model;
 
+import com.dufs.offsets.RecordListOffsets;
 import com.dufs.utility.DateUtility;
 
 import java.nio.ByteBuffer;
@@ -17,7 +18,7 @@ public class Record {
     private final long size;
     private final int parentDirectoryIndex;
     private final int parentDirectoryIndexOrderNumber;
-    private final byte isFile; // could be reimplemented as boolean, it might save 7 bits of storage for each Record
+    private final byte isFile;
 
     public char[] getName() {
         return name;
@@ -101,7 +102,7 @@ public class Record {
     }
 
     public byte[] serialize() {
-        final int bytesCount = 89;
+        final int bytesCount = RecordListOffsets.RECORD_SIZE;
         ByteBuffer buffer = ByteBuffer.allocateDirect(bytesCount);
         for (int i = 0; i < 32; ++i) {
             if (i < name.length) {
@@ -117,26 +118,11 @@ public class Record {
         buffer.putInt(firstClusterIndex);
         buffer.putLong(size);
         buffer.putInt(parentDirectoryIndex);
+        buffer.putInt(parentDirectoryIndexOrderNumber);
         buffer.put(isFile);
         buffer.position(0);
         byte[] tmp = new byte[bytesCount];
         buffer.get(tmp, 0, bytesCount);
         return tmp;
-    }
-
-    // maybe should be remade by using StringBuffer or StringBuilder
-    @Override
-    public String toString() {
-        return "Record{" +
-                "name=" + Arrays.toString(name) +
-                ", createDate=" + createDate +
-                ", createTime=" + createTime +
-                ", firstClusterIndex=" + firstClusterIndex +
-                ", lastEditDate=" + lastEditDate +
-                ", lastEditTime=" + lastEditTime +
-                ", size=" + size +
-                ", parentDirectoryIndex=" + parentDirectoryIndex +
-                ", isFile=" + isFile +
-                '}';
     }
 }

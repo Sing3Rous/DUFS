@@ -1,5 +1,6 @@
 package com.dufs.utility;
 
+import com.dufs.exceptions.DufsException;
 import com.dufs.model.Record;
 import com.dufs.model.ReservedSpace;
 import com.dufs.offsets.ClusterIndexListOffsets;
@@ -11,26 +12,26 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
 
-public class VolumeHelperUtility {
+public class VolumeHelper {
     public static int howMuchClustersNeeds(ReservedSpace reservedSpace, long size) {
         return (int) Math.ceilDiv(size, reservedSpace.getClusterSize());
     }
 
-    public static int howMuchClusterDirectoryTakes(RandomAccessFile volume, ReservedSpace reservedSpace, int directoryIndex) throws IOException {
+    public static int howMuchClustersDirectoryTakes(RandomAccessFile volume, ReservedSpace reservedSpace, int directoryIndex) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, directoryIndex));
         int numberOfRecords = volume.readInt();
-        int numberOfClusters = (numberOfRecords * 4) / reservedSpace.getClusterSize();
+        int numberOfClusters = Math.max(1, (numberOfRecords * 4) / reservedSpace.getClusterSize());
         volume.seek(defaultFilePointer);
         return numberOfClusters;
     }
 
-    public static long calculateVolumeSize(int clusterSize, long volumeSize) {
-        int clustersAmount = clustersAmount(clusterSize, volumeSize);
+    public static long calculateVolumeSize(int clusterSize, long nettoVolumeSize) {
+        int clustersAmount = clustersAmount(clusterSize, nettoVolumeSize);
         return ReservedSpaceOffsets.RESERVED_SPACE_SIZE
                 + ((long) ClusterIndexListOffsets.CLUSTER_INDEX_ELEMENT_SIZE * clustersAmount)
                 + ((long) RecordListOffsets.RECORD_SIZE * clustersAmount)
-                + volumeSize;
+                + nettoVolumeSize;
     }
 
     public static int clustersAmount(int clusterSize, long volumeSize) {
@@ -38,7 +39,7 @@ public class VolumeHelperUtility {
     }
 
     public static boolean enoughSpace(ReservedSpace reservedSpace, long size) {
-        return (reservedSpace.getFreeClusters() - VolumeHelperUtility.howMuchClustersNeeds(reservedSpace, size)) > 0;
+        return (reservedSpace.getFreeClusters() - Math.max(1, VolumeHelper.howMuchClustersNeeds(reservedSpace, size))) >= 0;
     }
 
     public static boolean recordExists(RandomAccessFile volume, int firstClusterIndex) throws IOException {
@@ -64,7 +65,7 @@ public class VolumeHelperUtility {
      * linear traverse through content in directory's cluster chain
      */
     public static boolean isNameUniqueInDirectory(RandomAccessFile volume, ReservedSpace reservedSpace,
-                                                  int directoryIndex, char[] name, byte isFile) throws IOException {
+                                                  int directoryIndex, char[] name, byte isFile) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, directoryIndex) + RecordOffsets.FIRST_CLUSTER_INDEX_OFFSET);
         int clusterIndex = volume.readInt();
@@ -74,7 +75,7 @@ public class VolumeHelperUtility {
             recordIndex = volume.readInt();
             int counter = 0;
             while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {
-                Record record = VolumeIOUtility.readRecordFromVolume(volume, reservedSpace, recordIndex);
+                Record record = VolumeIO.readRecordFromVolume(volume, reservedSpace, recordIndex);
                 if (Arrays.equals(Arrays.copyOf(name, 32), record.getName()) && record.getIsFile() == isFile) {
                     return false;
                 }

@@ -25,9 +25,8 @@ public class Parser {
     }
 
     public static boolean isRecordNameOk(String name) {
-        // check if name is all-null-symbols (\u0000)
         return !(name.contains("\\") || name.contains("\"") || name.contains("*") || name.contains(":")
                 || name.contains("<") || name.contains(">") || name.contains("?") || name.contains("|")
-                || name.contains("/"));
+                || name.contains("/") || name.contains("\u0000"));
     }
 }
