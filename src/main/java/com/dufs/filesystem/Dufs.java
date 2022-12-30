@@ -53,7 +53,7 @@ public class Dufs {
         volume.write(reservedSpace.serialize());
         ClusterIndexList clusterIndexList = new ClusterIndexList(clusterSize, nettoVolumeSize);
         volume.write(clusterIndexList.serialize());
-        VolumeIO.initializeRootCluster(volume);
+        VolumeIO.initializeRootClusterIndexElement(volume);
         RecordList recordList = new RecordList(clusterSize, nettoVolumeSize);
         volume.write(recordList.serialize());
         VolumeIO.initializeRootRecord(volume, reservedSpace);
@@ -105,7 +105,7 @@ public class Dufs {
         VolumeIO.writeRecordToVolume(volume, reservedSpace, recordIndex, file);
         reservedSpace.setNextRecordIndex(VolumeUtility.findNextFreeRecordIndex(volume, reservedSpace));
         VolumeIO.updateVolumeNextRecordIndex(volume, reservedSpace.getNextRecordIndex());
-        VolumeUtility.createClusterIndexChain(volume, reservedSpace, firstClusterIndex);
+        VolumeUtility.createClusterIndexChain(volume, reservedSpace, firstClusterIndex, recordIndex);
         VolumeIO.updateVolumeFreeClusters(volume, reservedSpace.getFreeClusters() - 1);
         reservedSpace.setFreeClusters(reservedSpace.getFreeClusters() - 1);
     }

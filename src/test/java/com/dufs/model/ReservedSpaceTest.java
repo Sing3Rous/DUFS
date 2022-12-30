@@ -30,7 +30,7 @@ class ReservedSpaceTest {
         assertEquals(volumeName, actualName);
         bb = ByteBuffer.wrap(bytes, 20, 40);
         assertEquals(clusterSize, bb.getInt());
-        assertEquals(4197060, bb.getLong());
+        assertEquals(4201060, bb.getLong());
         int reservedClusters = ((int) Math.ceil((1.0 * volumeSize) / clusterSize));
         assertEquals(reservedClusters, bb.getInt());
         short date = DateUtility.dateToShort(LocalDate.now());

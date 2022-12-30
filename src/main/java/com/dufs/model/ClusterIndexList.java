@@ -1,5 +1,6 @@
 package com.dufs.model;
 
+import com.dufs.offsets.ClusterIndexListOffsets;
 import com.dufs.utility.VolumeHelper;
 
 import java.nio.ByteBuffer;
@@ -15,7 +16,7 @@ public class ClusterIndexList {
     }
 
     public byte[] serialize() {
-        final int bytesCount = 8 * clusterIndexElements.length;
+        final int bytesCount = ClusterIndexListOffsets.CLUSTER_INDEX_ELEMENT_SIZE * clusterIndexElements.length;
         ByteBuffer buffer = ByteBuffer.allocateDirect(bytesCount);
         for (ClusterIndexElement clusterIndexElement : clusterIndexElements) {
             buffer.put(clusterIndexElement.serialize());

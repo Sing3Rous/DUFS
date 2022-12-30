@@ -17,6 +17,7 @@ import org.mockito.Mockito;
 
 import java.io.*;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.util.Arrays;
 
@@ -83,7 +84,7 @@ class DufsTest {
         dufsToMount.mountVolume(volumeName, 4096, 4096000);
         assertTrue(fileToMount.exists());
         RandomAccessFile volume = new RandomAccessFile(fileToMount, "rw");
-        assertEquals(4197060, fileToMount.length());
+        assertEquals(4201060, fileToMount.length());
         Record rootRecord = VolumeIO.readRecordFromVolume(volume, VolumeIO.readReservedSpaceFromVolume(volume), 0);
         assertEquals(0xFFFFFFFF, rootRecord.getParentDirectoryIndex());
         assertEquals(new String(Arrays.copyOf("tmp.DUFS".toCharArray(), 32)),
@@ -187,6 +188,7 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         // check if record contains in parent's directory cluster
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 0));
         assertEquals(1, volume.readInt());  // number of records in directory
@@ -264,10 +266,13 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(3, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(1, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(2, volume.readInt());
+        assertEquals(1, volume.readInt());
         tmpRAF.close();
         tmpFile.delete();
     }
@@ -343,10 +348,13 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(3, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(1, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(2, volume.readInt());
+        assertEquals(1, volume.readInt());
         tmpRAF.close();
         tmpFile.delete();
     }
@@ -379,10 +387,13 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(3, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(1, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(2, volume.readInt());
+        assertEquals(1, volume.readInt());
         tmpRAF1.close();
         tmpFile1.delete();
         tmpRAF2.close();
@@ -448,10 +459,13 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         volume.writeInt(2);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(1);
         volume.writeInt(3);
+        volume.writeInt(1);
         volume.writeInt(1);
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(2);
+        volume.writeInt(1);
         File tmpFile = new File("tmp");
         RandomAccessFile tmpRAF = new RandomAccessFile(tmpFile, "rw");
         dufs.readFile("vol.DUFS"
@@ -650,24 +664,34 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(0, volume.readInt());
+
         assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(3, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(1, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(2, volume.readInt());
+        assertEquals(1, volume.readInt());
 
         assertEquals(5, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(4, volume.readInt());
+        assertEquals(2, volume.readInt());
 
         assertEquals(7, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(3, volume.readInt());
         assertEquals(8, volume.readInt());
         assertEquals(6, volume.readInt());
+        assertEquals(3, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(7, volume.readInt());
+        assertEquals(3, volume.readInt());
         tmpRAF.close();
         tmpFile.delete();
     }
@@ -693,7 +717,7 @@ class DufsTest {
         tmpRAF.write(content);
         dufs.writeFile("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record", tmpFile);
         dufs.bake();
-        assertEquals(1018252, volume.length());
+        assertEquals(1058252, volume.length());
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
         byte[] readContent = new byte[1024];
         volume.read(readContent);
@@ -724,7 +748,7 @@ class DufsTest {
         dufs.writeFile("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record", tmpFile);
         dufs.bake();
         dufs.unbake();
-        assertEquals(41970060, volume.length());
+        assertEquals(42010060, volume.length());
         tmpRAF.close();
         tmpFile.delete();
     }
@@ -874,7 +898,106 @@ class DufsTest {
         dufs.bake();
         dufs.closeVolume();
         dufs.attachVolume("vol.DUFS");
-        dufs.printVolumeRecords();
+
+        String returnedfiles1Path = comdufsPath + separator + "returnedfiles1";
+        String returnedfiles2Path = comdufsPath + separator + "returnedfiles2";
+        String returnedfiles3Path = comdufsPath + separator + "returnedfiles3";
+        File clusterIndexElementFromDufs = new File("ClusterIndexElementFromDUFS.java");
+        File recordListFromDufs = new File("RecordListFromDUFS.java");
+        File recordOffsetsFromDufs = new File("RecordOffsetsFromDUFS.java");
+        File dateUtilityFromDufs = new File("DateUtilityFromDUFS.java");
+        File volumeUtilityFromDufs = new File("VolumeUtilityFromDUFS.java");
+        File dufsExceptionFromDufs = new File("DufsExceptionFromDUFS.java");
+        File dufsFromDufs = new File("DufsFromDUFS.java");
+        File recordFromDufs = new File("RecordFromDUFS.java");
+        File clusterIndexListFromDufs = new File("ClusterIndexListFromDUFS.java");
+        File reservedSpaceFromDufs = new File("ReservedSpaceFromDUFS.java");
+        File clusterIndexListOffsetsFromDufs = new File("ClusterIndexListOffsetsFromDUFS.java");
+        File recordListOffsetsFromDufs = new File("RecordListOffsetsFromDUFS.java");
+        File reservedSpaceOffsetsFromDufs = new File("ReservedSpaceOffsetsFromDUFS.java");
+        File volumeIOFromDufs = new File("VolumeIOFromDUFS.java");
+        File volumePointerUtilityFromDufs = new File("VolumePointerUtilityFromDUFS.java");
+        File parserFromDufs = new File("ParserFromDUFS.java");
+        File printUtilityFromDufs = new File("PrintUtilityFromDUFS.java");
+        File volumeHelperFromDufs = new File("VolumeHelperFromDUFS.java");
+
+        dufs.readFile(modelPath + separator + "ClusterIndexElement.java", clusterIndexElementFromDufs);
+        dufs.readFile(modelPath + separator + "RecordList.java", recordListFromDufs);
+        dufs.readFile(offsetsPath + separator + "RecordOffsets.java", recordOffsetsFromDufs);
+        dufs.readFile(utilityPath + separator + "DateUtility.java", dateUtilityFromDufs);
+        dufs.readFile(utilityPath + separator + "VolumeUtility.java", volumeUtilityFromDufs);
+        dufs.readFile(returnedfiles1Path + separator + "DufsException.java", dufsExceptionFromDufs);
+        dufs.readFile(returnedfiles1Path + separator + "Dufs.java", dufsFromDufs);
+        dufs.readFile(returnedfiles1Path + separator + "Record.java", recordFromDufs);
+        dufs.readFile(returnedfiles1Path + separator + "ClusterIndexList.java", clusterIndexListFromDufs);
+        dufs.readFile(returnedfiles2Path + separator + "ReservedSpace.java", reservedSpaceFromDufs);
+        dufs.readFile(returnedfiles2Path + separator + "ClusterIndexListOffsets.java", clusterIndexListOffsetsFromDufs);
+        dufs.readFile(returnedfiles2Path + separator + "RecordListOffsets.java", recordListOffsetsFromDufs);
+        dufs.readFile(returnedfiles2Path + separator + "ReservedSpaceOffsets.java", reservedSpaceOffsetsFromDufs);
+        dufs.readFile(returnedfiles3Path + separator + "VolumeIO.java", volumeIOFromDufs);
+        dufs.readFile(returnedfiles3Path + separator + "VolumePointerUtility.java", volumePointerUtilityFromDufs);
+        dufs.readFile(returnedfiles3Path + separator + "Parser.java", parserFromDufs);
+        dufs.readFile(returnedfiles3Path + separator + "PrintUtility.java", printUtilityFromDufs);
+        dufs.readFile(returnedfiles3Path + separator + "VolumeHelper.java", volumeHelperFromDufs);
+
+        File clusterIndexElementReal = new File(comdufsPathReal + separator + "model" + separator + "ClusterIndexElement.java");
+        File recordListReal = new File(comdufsPathReal + separator + "model" + separator + "RecordList.java");
+        File recordOffsetsReal = new File(comdufsPathReal + separator + "offsets" + separator + "RecordOffsets.java");
+        File dateUtilityReal= new File(comdufsPathReal + separator + "utility" + separator + "DateUtility.java");
+        File volumeUtilityReal = new File(comdufsPathReal + separator + "utility" + separator + "VolumeUtility.java");
+        File dufsExceptionReal = new File(comdufsPathReal + separator + "exceptions" + separator + "DufsException.java");
+        File dufsReal = new File(comdufsPathReal + separator + "filesystem" + separator + "Dufs.java");
+        File recordReal = new File(comdufsPathReal + separator + "model" + separator + "Record.java");
+        File clusterIndexListReal = new File(comdufsPathReal + separator + "model" + separator + "ClusterIndexList.java");
+        File reservedSpaceReal = new File(comdufsPathReal + separator + "model" + separator + "ReservedSpace.java");
+        File clusterIndexListOffsetsReal = new File(comdufsPathReal + separator + "offsets" + separator + "ClusterIndexListOffsets.java");
+        File recordListOffsetsReal = new File(comdufsPathReal + separator + "offsets" + separator + "RecordListOffsets.java");
+        File reservedSpaceOffsetsReal = new File(comdufsPathReal + separator + "offsets" + separator + "ReservedSpaceOffsets.java");
+        File volumeIOReal= new File(comdufsPathReal + separator + "utility" + separator + "VolumeIO.java");
+        File volumePointerUtilityReal = new File(comdufsPathReal + separator + "utility" + separator + "VolumePointerUtility.java");
+        File parserReal = new File(comdufsPathReal + separator + "utility" + separator + "Parser.java");
+        File printUtilityReal = new File(comdufsPathReal + separator + "utility" + separator + "PrintUtility.java");
+        File volumeHelperReal = new File(comdufsPathReal + separator + "utility" + separator + "VolumeHelper.java");
+
+        assertArrayEquals(Files.readAllBytes(clusterIndexElementReal.toPath()), Files.readAllBytes(clusterIndexElementFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(recordListReal.toPath()), Files.readAllBytes(recordListFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(recordOffsetsReal.toPath()), Files.readAllBytes(recordOffsetsFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(dateUtilityReal.toPath()), Files.readAllBytes(dateUtilityFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(volumeUtilityReal.toPath()), Files.readAllBytes(volumeUtilityFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(dufsExceptionReal.toPath()), Files.readAllBytes(dufsExceptionFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(dufsReal.toPath()), Files.readAllBytes(dufsFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(recordReal.toPath()), Files.readAllBytes(recordFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(clusterIndexListReal.toPath()), Files.readAllBytes(clusterIndexListFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(reservedSpaceReal.toPath()), Files.readAllBytes(reservedSpaceFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(clusterIndexListOffsetsReal.toPath()), Files.readAllBytes(clusterIndexListOffsetsFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(recordListOffsetsReal.toPath()), Files.readAllBytes(recordListOffsetsFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(reservedSpaceOffsetsReal.toPath()), Files.readAllBytes(reservedSpaceOffsetsFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(volumeIOReal.toPath()), Files.readAllBytes(volumeIOFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(volumePointerUtilityReal.toPath()), Files.readAllBytes(volumePointerUtilityFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(parserReal.toPath()), Files.readAllBytes(parserFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(printUtilityReal.toPath()), Files.readAllBytes(printUtilityFromDufs.toPath()));
+        assertArrayEquals(Files.readAllBytes(volumeHelperReal.toPath()), Files.readAllBytes(volumeHelperFromDufs.toPath()));
+
+        clusterIndexElementFromDufs.delete();
+        recordListFromDufs.delete();
+        recordOffsetsFromDufs.delete();
+        dateUtilityFromDufs.delete();
+        volumeUtilityFromDufs.delete();
+        dufsExceptionFromDufs.delete();
+        dufsFromDufs.delete();
+        recordFromDufs.delete();
+        clusterIndexListFromDufs.delete();
+        reservedSpaceFromDufs.delete();
+        clusterIndexListOffsetsFromDufs.delete();
+        recordListOffsetsFromDufs.delete();
+        reservedSpaceOffsetsFromDufs.delete();
+        volumeIOFromDufs.delete();
+        volumePointerUtilityFromDufs.delete();
+        parserFromDufs.delete();
+        printUtilityFromDufs.delete();
+        volumeHelperFromDufs.delete();
         dufs.printDirectoryTree();
+        dufs.printVolumeRecords();
+        dufs.printVolumeInfo();
     }
 }

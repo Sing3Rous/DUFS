@@ -1,7 +1,6 @@
 package com.dufs.utility;
 
 import com.dufs.exceptions.DufsException;
-import com.dufs.filesystem.Dufs;
 import com.dufs.model.Record;
 import com.dufs.model.ReservedSpace;
 import com.dufs.offsets.RecordOffsets;
@@ -12,14 +11,14 @@ import java.io.RandomAccessFile;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.Date;
 
 public class VolumeIO {
-    public static void initializeRootCluster(RandomAccessFile volume) throws IOException {
+    public static void initializeRootClusterIndexElement(RandomAccessFile volume) throws IOException {
         long defaultFilePointer = volume.getFilePointer();
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         volume.writeInt(0xFFFFFFFF);    // mark root's first cluster as last cluster in chain
         volume.writeInt(0xFFFFFFFF);    // mark root's first cluster as first cluster in chain
+        volume.writeInt(0);             // mark root's cluster's record index as 0
         volume.seek(defaultFilePointer);
     }
 
@@ -224,10 +223,12 @@ public class VolumeIO {
             volume.seek(VolumePointerUtility.calculateClusterIndexPosition(prevClusterIndex));
             volume.writeInt(0);
             volume.writeInt(0);
+            volume.writeInt(0xFFFFFFFF);
         }
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(file.getFirstClusterIndex()));
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(recordIndex);
         volume.seek(defaultFilePointer);
     }
 }

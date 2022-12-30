@@ -47,7 +47,7 @@ class VolumeHelperTest {
     @Test
     void calculateVolumeSize() {
         long volumeSize = VolumeHelper.calculateVolumeSize(reservedSpace.getClusterSize(), 4096000);
-        assertEquals(4197060, volumeSize);
+        assertEquals(4201060, volumeSize);
     }
 
     @Test
