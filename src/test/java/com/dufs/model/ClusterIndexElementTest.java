@@ -17,5 +17,6 @@ class ClusterIndexElementTest {
         ByteBuffer bb = ByteBuffer.wrap(bytes);
         assertEquals(0, bb.getInt());
         assertEquals(0, bb.getInt());
+        assertEquals(0xFFFFFFFF, bb.getInt());
     }
 }

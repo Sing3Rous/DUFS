@@ -26,14 +26,14 @@ class VolumePointerUtilityTest {
     void calculateRecordPosition() {
         int recordIndex = 777;
         long recordPosition = VolumePointerUtility.calculateRecordPosition(reservedSpace, recordIndex);
-        assertEquals(80321, recordPosition);
+        assertEquals(84321, recordPosition);
     }
 
     @Test
     void calculateClusterIndexPosition() {
         int clusterIndex = 777;
         long clusterIndexPosition = VolumePointerUtility.calculateClusterIndexPosition(clusterIndex);
-        assertEquals(6276, clusterIndexPosition);
+        assertEquals(9384, clusterIndexPosition);
 
     }
 
@@ -41,18 +41,18 @@ class VolumePointerUtilityTest {
     void calculateClusterPosition() {
         int clusterIndex = 777;
         long clusterPosition = VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex);
-        assertEquals(3283652, clusterPosition);
+        assertEquals(3287652, clusterPosition);
     }
 
     @Test
     void calculateRecordListOffset() {
         long recordListOffset = VolumePointerUtility.calculateRecordListOffset(reservedSpace);
-        assertEquals(8060, recordListOffset);
+        assertEquals(12060, recordListOffset);
     }
 
     @Test
     void calculateClustersAreaOffset() {
         long clusterAreaOffset = VolumePointerUtility.calculateClustersAreaOffset(reservedSpace);
-        assertEquals(101060, clusterAreaOffset);
+        assertEquals(105060, clusterAreaOffset);
     }
 }

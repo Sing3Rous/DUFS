@@ -1,7 +1,6 @@
 package com.dufs.offsets;
 
 public class ReservedSpaceOffsets {
-    public static final int RESERVED_SPACE_OFFSET = 0;
     public static final int DUFS_NOSE_SIGNATURE_OFFSET = 0;
     public static final int VOLUME_NAME_OFFSET = 4;
     public static final int CLUSTER_SIZE_OFFSET = 20;

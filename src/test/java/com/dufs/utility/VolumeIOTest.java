@@ -41,12 +41,13 @@ class VolumeIOTest {
         file.delete();
     }
 
-    @Test   // no need to call VolumeIO.initializeRootCluster() directly because it was already called in Dufs.mountVolume()
+    @Test   // no need to call VolumeIO.initializeRootClusterIndexElement() directly because it was already called in Dufs.mountVolume()
     void initializeRootCluster() throws IOException {
         RandomAccessFile volume = dufs.getVolume();
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         assertEquals(0xFFFFFFFF, volume.readInt()); // check ClusterIndexElement.nextClusterIndex
         assertEquals(0xFFFFFFFF, volume.readInt()); // check ClusterIndexElement.prevClusterIndex
+        assertEquals(0, volume.readInt());          // check ClusterIndexElement.recordIndex
     }
 
     @Test   // no need to call VolumeIO.initializeRootRecord() directly because it was already called in Dufs.mountVolume()
@@ -77,7 +78,7 @@ class VolumeIOTest {
         assertEquals(0x44554653, reservedSpace.getDufsNoseSignature());
         assertEquals(new String(Arrays.copyOf("vol.DUFS".toCharArray(), 8)), new String(reservedSpace.getVolumeName()));
         assertEquals(4096, reservedSpace.getClusterSize());
-        assertEquals(4197060, reservedSpace.getVolumeSize());
+        assertEquals(4201060, reservedSpace.getVolumeSize());
         assertEquals(1000, reservedSpace.getReservedClusters());
         short date = DateUtility.dateToShort(LocalDate.now());
         assertEquals(date, reservedSpace.getCreateDate());
@@ -307,6 +308,7 @@ class VolumeIOTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(1);
         VolumeIO.cleanFileData(volume, reservedSpace, 1);
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
         byte[] clusterRead = new byte[reservedSpace.getClusterSize()];
@@ -316,6 +318,7 @@ class VolumeIOTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
     }
 
     @Test
@@ -331,7 +334,9 @@ class VolumeIOTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         volume.writeInt(2);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(1);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(1);
         volume.writeInt(1);
         VolumeIO.cleanFileData(volume, reservedSpace, 1);
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
@@ -344,7 +349,9 @@ class VolumeIOTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(0, volume.readInt());
         assertEquals(0, volume.readInt());
+        assertEquals(0xFFFFFFFF, volume.readInt());
     }
 }

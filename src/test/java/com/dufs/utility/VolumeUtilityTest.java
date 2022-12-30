@@ -4,6 +4,7 @@ import com.dufs.exceptions.DufsException;
 import com.dufs.filesystem.Dufs;
 import com.dufs.model.Record;
 import com.dufs.model.ReservedSpace;
+import com.dufs.offsets.ClusterIndexListOffsets;
 import com.dufs.offsets.ReservedSpaceOffsets;
 import org.junit.jupiter.api.*;
 
@@ -40,10 +41,11 @@ class VolumeUtilityTest {
     @Test
     void createClusterIndexChain() throws IOException {
         RandomAccessFile volume = dufs.getVolume();
-        VolumeUtility.createClusterIndexChain(volume, reservedSpace, 303);
+        VolumeUtility.createClusterIndexChain(volume, reservedSpace, 303, 404);
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(303));
         assertEquals(0xFFFFFFFF, volume.readInt()); // ClusterIndexElement.nextClusterIndex
         assertEquals(0xFFFFFFFF, volume.readInt()); // ClusterIndexElement.prevClusterIndex
+        assertEquals(404, volume.readInt());
     }
 
     @Test
@@ -53,8 +55,11 @@ class VolumeUtilityTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         assertEquals(1, volume.readInt());          // next cluster index in chain for 0 is 1
         assertEquals(0xFFFFFFFF, volume.readInt()); // 0 is first cluster index in chain
+        assertEquals(0, volume.readInt());          // 0 as record index of 0th cluster
         assertEquals(0xFFFFFFFF, volume.readInt()); // 1 is last cluster index in chain
         assertEquals(0, volume.readInt());          // prev cluster index in chain for 1 is 0
+        assertEquals(0, volume.readInt());          // 0 as record index of 1st cluster
+
     }
 
     @Test
@@ -124,12 +129,13 @@ class VolumeUtilityTest {
         VolumeUtility.deleteRecord(volume, reservedSpace, record, 1);
         byte[] clusterContent = new byte[reservedSpace.getClusterSize()];
         VolumeIO.readClusterFromVolume(volume, reservedSpace, 1, clusterContent);
-        // check if cluster is filled only zeros
+        // check if cluster is filled with only zeros
         assertTrue(IntStream.range(0, clusterContent.length).parallel().allMatch(i -> clusterContent[i] == 0));
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         // check if cluster index chain is empty
         assertEquals(0, volume.readInt());  // ClusterIndexElement.nextClusterIndex
         assertEquals(0, volume.readInt());  // ClusterIndexElement.prevClusterIndex
+        assertEquals(0xFFFFFFFF, volume.readInt());
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 0));
         // check if parent's cluster doesn't contain indexes of deleted record
         assertEquals(0, volume.readInt());  // amount of records in parent directory
@@ -189,7 +195,7 @@ class VolumeUtilityTest {
         // crutch to update cluster chain of "folder" chain
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         volume.writeInt(2);
-        volume.skipBytes(4);
+        volume.skipBytes(ClusterIndexListOffsets.CLUSTER_INDEX_ELEMENT_SIZE - 4);
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(1);
         String directoryPath = new String(reservedSpace.getVolumeName())
@@ -241,7 +247,7 @@ class VolumeUtilityTest {
         // crutch to update cluster chain of "folder" chain
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         volume.writeInt(2);
-        volume.skipBytes(4);
+        volume.skipBytes(ClusterIndexListOffsets.CLUSTER_INDEX_ELEMENT_SIZE - 4);
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(1);
         String directoryPath = new String(reservedSpace.getVolumeName())
@@ -259,10 +265,13 @@ class VolumeUtilityTest {
         // overwrite 3 clusters
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(1);
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(2);
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(3);
         int nextFreeCluster = VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace);
         assertEquals(4, nextFreeCluster);
     }
@@ -275,10 +284,13 @@ class VolumeUtilityTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(997));
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(1);
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(2);
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(3);
         int nextFreeCluster = VolumeUtility.findNextFreeClusterIndex(volume, reservedSpace);
         assertEquals(1, nextFreeCluster);
     }
@@ -333,9 +345,11 @@ class VolumeUtilityTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         volume.writeInt(5);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(1);
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(5));
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(0);
+        volume.writeInt(1);
         int nextClusterIndex = VolumeUtility.findNextClusterIndexInChain(volume, 0);
         assertEquals(5, nextClusterIndex);
     }
@@ -346,9 +360,11 @@ class VolumeUtilityTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         volume.writeInt(5);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(1);
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(5));
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(0);
+        volume.writeInt(1);
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         int nextClusterIndex = VolumeUtility.findPrevClusterIndexInChain(volume, 5);
         assertEquals(0, nextClusterIndex);
@@ -394,17 +410,9 @@ class VolumeUtilityTest {
     }
 
     @Test
-    void findRecordIndexByFirstClusterIndex_missingRecord() {
-        assertEquals("There is no record with such first cluster index.",
-                assertThrows(DufsException.class,
-                        () -> VolumeUtility.findRecordIndexByFirstClusterIndex(
-                                dufs.getVolume(), reservedSpace, 3)).getMessage());
-    }
-
-    @Test
-    void findRecordIndexByFirstClusterIndex() throws IOException, DufsException {
+    void findRecordIndexOfCluster() throws IOException, DufsException {
         dufs.createRecord("vol.DUFS", "record", (byte) 1);
-        int recordIndex = VolumeUtility.findRecordIndexByFirstClusterIndex(dufs.getVolume(), reservedSpace, 1);
+        int recordIndex = VolumeUtility.findRecordIndexOfCluster(dufs.getVolume(), 1);
         assertEquals(1, recordIndex);
     }
 
@@ -478,7 +486,9 @@ class VolumeUtilityTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         volume.writeInt(1);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(0);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(0);
         volume.writeInt(0);
         VolumeUtility.removeRecordIndexFromDirectoryCluster(volume, reservedSpace, 0, 1025);
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 0));
@@ -498,7 +508,9 @@ class VolumeUtilityTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         volume.writeInt(1);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(0);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(0);
         volume.writeInt(0);
         VolumeUtility.removeRecordIndexFromDirectoryCluster(volume, reservedSpace, 0, 1024);
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 0));
@@ -509,8 +521,10 @@ class VolumeUtilityTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         assertEquals(0xFFFFFFFF, volume.readInt()); // 0th cluster next cluster index in chain
         assertEquals(0xFFFFFFFF, volume.readInt()); // 0th cluster prev cluster index in chain
+        assertEquals(0, volume.readInt());          // 0th cluster record index is 0
         assertEquals(0, volume.readInt());          // 1st cluster next cluster index in chain
         assertEquals(0, volume.readInt());          // 1st cluster prev cluster index in chain
+        assertEquals(0xFFFFFFFF, volume.readInt()); // 1st cluster record index is 0xFFFFFFFF
     }
 
     @Test
@@ -547,20 +561,28 @@ class VolumeUtilityTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(3, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(1, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(2, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(7, volume.readInt());
+        assertEquals(2, volume.readInt());
         assertEquals(6, volume.readInt());
         assertEquals(8, volume.readInt());
+        assertEquals(3, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(5, volume.readInt());
+        assertEquals(3, volume.readInt());
         assertEquals(4, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(2, volume.readInt());
         assertEquals(5, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(3, volume.readInt());
 
         byte[] content1_0 = new byte[reservedSpace.getClusterSize()];
         byte[] content1_1 = new byte[reservedSpace.getClusterSize()];

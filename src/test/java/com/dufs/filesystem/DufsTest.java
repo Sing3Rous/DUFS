@@ -84,7 +84,7 @@ class DufsTest {
         dufsToMount.mountVolume(volumeName, 4096, 4096000);
         assertTrue(fileToMount.exists());
         RandomAccessFile volume = new RandomAccessFile(fileToMount, "rw");
-        assertEquals(4197060, fileToMount.length());
+        assertEquals(4201060, fileToMount.length());
         Record rootRecord = VolumeIO.readRecordFromVolume(volume, VolumeIO.readReservedSpaceFromVolume(volume), 0);
         assertEquals(0xFFFFFFFF, rootRecord.getParentDirectoryIndex());
         assertEquals(new String(Arrays.copyOf("tmp.DUFS".toCharArray(), 32)),
@@ -188,6 +188,7 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         // check if record contains in parent's directory cluster
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 0));
         assertEquals(1, volume.readInt());  // number of records in directory
@@ -265,10 +266,13 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(3, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(1, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(2, volume.readInt());
+        assertEquals(1, volume.readInt());
         tmpRAF.close();
         tmpFile.delete();
     }
@@ -344,10 +348,13 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(3, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(1, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(2, volume.readInt());
+        assertEquals(1, volume.readInt());
         tmpRAF.close();
         tmpFile.delete();
     }
@@ -380,10 +387,13 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(3, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(1, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(2, volume.readInt());
+        assertEquals(1, volume.readInt());
         tmpRAF1.close();
         tmpFile1.delete();
         tmpRAF2.close();
@@ -449,10 +459,13 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(1));
         volume.writeInt(2);
         volume.writeInt(0xFFFFFFFF);
+        volume.writeInt(1);
         volume.writeInt(3);
+        volume.writeInt(1);
         volume.writeInt(1);
         volume.writeInt(0xFFFFFFFF);
         volume.writeInt(2);
+        volume.writeInt(1);
         File tmpFile = new File("tmp");
         RandomAccessFile tmpRAF = new RandomAccessFile(tmpFile, "rw");
         dufs.readFile("vol.DUFS"
@@ -651,24 +664,34 @@ class DufsTest {
         volume.seek(VolumePointerUtility.calculateClusterIndexPosition(0));
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(0, volume.readInt());
+
         assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(3, volume.readInt());
+        assertEquals(1, volume.readInt());
         assertEquals(1, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(2, volume.readInt());
+        assertEquals(1, volume.readInt());
 
         assertEquals(5, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(2, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(4, volume.readInt());
+        assertEquals(2, volume.readInt());
 
         assertEquals(7, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
+        assertEquals(3, volume.readInt());
         assertEquals(8, volume.readInt());
         assertEquals(6, volume.readInt());
+        assertEquals(3, volume.readInt());
         assertEquals(0xFFFFFFFF, volume.readInt());
         assertEquals(7, volume.readInt());
+        assertEquals(3, volume.readInt());
         tmpRAF.close();
         tmpFile.delete();
     }
@@ -694,7 +717,7 @@ class DufsTest {
         tmpRAF.write(content);
         dufs.writeFile("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record", tmpFile);
         dufs.bake();
-        assertEquals(1018252, volume.length());
+        assertEquals(1058252, volume.length());
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, 1));
         byte[] readContent = new byte[1024];
         volume.read(readContent);
@@ -725,7 +748,7 @@ class DufsTest {
         dufs.writeFile("vol.DUFS" + FileSystems.getDefault().getSeparator() + "record", tmpFile);
         dufs.bake();
         dufs.unbake();
-        assertEquals(41970060, volume.length());
+        assertEquals(42010060, volume.length());
         tmpRAF.close();
         tmpFile.delete();
     }
@@ -973,5 +996,8 @@ class DufsTest {
         parserFromDufs.delete();
         printUtilityFromDufs.delete();
         volumeHelperFromDufs.delete();
+        dufs.printDirectoryTree();
+        dufs.printVolumeRecords();
+        dufs.printVolumeInfo();
     }
 }
