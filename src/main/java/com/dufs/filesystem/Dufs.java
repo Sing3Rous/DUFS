@@ -21,7 +21,10 @@ public class Dufs {
         return volume;
     }
 
-    public void closeVolume() throws IOException {
+    public void closeVolume() throws IOException, DufsException {
+        if (volume == null) {
+            throw new DufsException("Volume has not found.");
+        }
         volume.close();
     }
 
@@ -320,6 +323,9 @@ public class Dufs {
             throw new DufsException("Record does not exist.");
         }
         int newDirectoryIndex = VolumeUtility.findDirectoryIndex(volume, reservedSpace, newPath);
+        if (!VolumeHelper.isNameUniqueInDirectory(volume, reservedSpace, newDirectoryIndex, dufsRecord.getName(), isFile)) {
+            throw new DufsException("Record with such name and type already contains in this path.");
+        }
         Record newDirectory = VolumeIO.readRecordFromVolume(volume, reservedSpace, newDirectoryIndex);
         int newDirectoryIndexOrderNumber = VolumeUtility.addRecordIndexInDirectoryCluster(volume, reservedSpace,
                 dufsRecordIndex, newDirectory.getFirstClusterIndex());

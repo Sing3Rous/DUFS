@@ -33,7 +33,7 @@ class VolumeUtilityTest {
     }
 
     @AfterEach
-    void deleteFile() throws IOException {
+    void deleteFile() throws IOException, DufsException {
         dufs.closeVolume();
         file.delete();
     }
