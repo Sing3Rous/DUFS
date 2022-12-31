@@ -37,7 +37,7 @@ class DufsTest {
     }
 
     @AfterEach
-    void deleteFile() throws IOException {
+    void deleteFile() throws IOException, DufsException {
         dufs.closeVolume();
         file.delete();
     }
@@ -95,7 +95,7 @@ class DufsTest {
     }
 
     @Test
-    void attachVolume_missingVolume() throws IOException {
+    void attachVolume_missingVolume() throws IOException, DufsException {
         dufs.closeVolume();
         file.delete();
         assertEquals("There is no volume with such name in this directory.",
@@ -104,7 +104,7 @@ class DufsTest {
     }
 
     @Test
-    void attachVolume_signatureCheckupFail() throws IOException {
+    void attachVolume_signatureCheckupFail() throws IOException, DufsException {
         dufs.closeVolume();
         file.delete();
         final String volumeName = "vol.FS";
@@ -996,8 +996,5 @@ class DufsTest {
         parserFromDufs.delete();
         printUtilityFromDufs.delete();
         volumeHelperFromDufs.delete();
-        dufs.printDirectoryTree();
-        dufs.printVolumeRecords();
-        dufs.printVolumeInfo();
     }
 }
