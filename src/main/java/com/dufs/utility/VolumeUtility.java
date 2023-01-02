@@ -323,7 +323,8 @@ public class VolumeUtility {
     public static void removeRecordIndexFromDirectoryCluster(RandomAccessFile volume, ReservedSpace reservedSpace, int parentDirectoryIndex,
                                                              int parentDirectoryIndexOrderNumber) throws IOException, DufsException {
         long defaultFilePointer = volume.getFilePointer();
-        long clusterPosition = VolumePointerUtility.calculateClusterPosition(reservedSpace, parentDirectoryIndex);
+        Record directory = VolumeIO.readRecordFromVolume(volume, reservedSpace, parentDirectoryIndex);
+        long clusterPosition = VolumePointerUtility.calculateClusterPosition(reservedSpace, directory.getFirstClusterIndex());
         volume.seek(clusterPosition);
         int numberOfRecordsInDirectory = volume.readInt();
         if (numberOfRecordsInDirectory == 0) {
@@ -332,7 +333,6 @@ public class VolumeUtility {
         volume.seek(clusterPosition);
         volume.writeInt(numberOfRecordsInDirectory - 1);
         // traverse cluster chain to find neededClusterIndex and lastClusterIndex
-        Record directory = VolumeIO.readRecordFromVolume(volume, reservedSpace, parentDirectoryIndex);
         int clusterIndex = directory.getFirstClusterIndex();
         int neededClusterOrderNumber = Math.floorDiv(parentDirectoryIndexOrderNumber * 4, reservedSpace.getClusterSize());
         int clusterOrderNumber = 0;
@@ -351,7 +351,7 @@ public class VolumeUtility {
             volume.seek(VolumePointerUtility.calculateClusterIndexPosition(lastClusterIndex));  // read ClusterIndexElement.prevClusterIndex and seek to that cluster index
             lastClusterIndex = volume.readInt();                                                // read index of last cluster in chain
         } else {
-            lastClusterIndex = parentDirectoryIndex;
+            lastClusterIndex = directory.getFirstClusterIndex();
         }
         int lastRecordPositionOffset = (int) ((numberOfRecordsInDirectory * 4L) % reservedSpace.getClusterSize());
         volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, lastClusterIndex) + lastRecordPositionOffset);
