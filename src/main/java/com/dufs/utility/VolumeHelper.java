@@ -70,8 +70,9 @@ public class VolumeHelper {
         volume.seek(VolumePointerUtility.calculateRecordPosition(reservedSpace, directoryIndex) + RecordOffsets.FIRST_CLUSTER_INDEX_OFFSET);
         int clusterIndex = volume.readInt();
         int recordIndex;
+        long position = VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex) + 4;
         do {
-            volume.seek(VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex) + 4);
+            volume.seek(position);
             recordIndex = volume.readInt();
             int counter = 0;
             while (recordIndex != 0 && counter < (reservedSpace.getClusterSize() / 4)) {
@@ -83,6 +84,7 @@ public class VolumeHelper {
                 counter++;
             }
             clusterIndex = VolumeUtility.findNextClusterIndexInChain(volume, clusterIndex);
+            position = VolumePointerUtility.calculateClusterPosition(reservedSpace, clusterIndex);
         } while (clusterIndex != -1);
         volume.seek(defaultFilePointer);
         return true;
